@@ -37,14 +37,14 @@ class Match(Base):
     away: Mapped[str] = mapped_column(String(4))
     group: Mapped[str] = mapped_column(String(2), default="")
     stage: Mapped[str] = mapped_column(String(24), default="group")
-    kickoff: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    kickoff: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     venue: Mapped[str] = mapped_column(String(96), default="")
 
 
 class MatchResult(Base):
     __tablename__ = "match_results"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    date: Mapped[datetime] = mapped_column(DateTime)
+    date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     home: Mapped[str] = mapped_column(String(4))
     away: Mapped[str] = mapped_column(String(4))
     home_goals: Mapped[int] = mapped_column(Integer)
@@ -60,7 +60,7 @@ class OddsSnapshot(Base):
     book: Mapped[str] = mapped_column(String(48))
     selection: Mapped[str] = mapped_column(String(64))
     dec: Mapped[float] = mapped_column(Float)
-    captured_at: Mapped[datetime] = mapped_column(DateTime)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ModelSnapshot(Base):
@@ -69,14 +69,14 @@ class ModelSnapshot(Base):
     kind: Mapped[str] = mapped_column(String(24), index=True)  # outright|match|group|player
     ref: Mapped[str] = mapped_column(String(48), index=True)   # team code or match id
     payload: Mapped[dict] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class TournamentSnapshot(Base):
     __tablename__ = "tournament_snapshot"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     payload: Mapped[dict] = mapped_column(JSON)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class TeamNews(Base):
@@ -87,7 +87,7 @@ class TeamNews(Base):
     text: Mapped[str] = mapped_column(Text)
     source: Mapped[str] = mapped_column(String(48), default="")
     url: Mapped[str] = mapped_column(String(256), default="")
-    published_at: Mapped[datetime] = mapped_column(DateTime)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Bet(Base):
@@ -101,7 +101,7 @@ class Bet(Base):
     dec: Mapped[float] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(8), default="open")  # open|won|lost|void
     pnl: Mapped[float] = mapped_column(Float, default=0.0)
-    placed_at: Mapped[datetime] = mapped_column(DateTime)
+    placed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class BankrollTxn(Base):
@@ -110,7 +110,7 @@ class BankrollTxn(Base):
     kind: Mapped[str] = mapped_column(String(16))  # deposit|bet|settle
     amount: Mapped[float] = mapped_column(Float)
     bet_id: Mapped[int | None] = mapped_column(ForeignKey("bets.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ProviderCall(Base):
@@ -118,4 +118,4 @@ class ProviderCall(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String(32))
     endpoint: Mapped[str] = mapped_column(String(96))
-    called_at: Mapped[datetime] = mapped_column(DateTime)
+    called_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

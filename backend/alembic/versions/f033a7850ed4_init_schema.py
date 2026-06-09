@@ -1,8 +1,8 @@
 """init schema
 
-Revision ID: 1592df400e43
+Revision ID: f033a7850ed4
 Revises: 
-Create Date: 2026-06-09 23:17:54.745907
+Create Date: 2026-06-09 23:28:30.878274
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '1592df400e43'
+revision: str = 'f033a7850ed4'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -31,12 +31,12 @@ def upgrade() -> None:
     sa.Column('dec', sa.Float(), nullable=False),
     sa.Column('status', sa.String(length=8), nullable=False),
     sa.Column('pnl', sa.Float(), nullable=False),
-    sa.Column('placed_at', sa.DateTime(), nullable=False),
+    sa.Column('placed_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('match_results',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('date', sa.DateTime(), nullable=False),
+    sa.Column('date', sa.DateTime(timezone=True), nullable=False),
     sa.Column('home', sa.String(length=4), nullable=False),
     sa.Column('away', sa.String(length=4), nullable=False),
     sa.Column('home_goals', sa.Integer(), nullable=False),
@@ -51,7 +51,7 @@ def upgrade() -> None:
     sa.Column('away', sa.String(length=4), nullable=False),
     sa.Column('group', sa.String(length=2), nullable=False),
     sa.Column('stage', sa.String(length=24), nullable=False),
-    sa.Column('kickoff', sa.DateTime(), nullable=True),
+    sa.Column('kickoff', sa.DateTime(timezone=True), nullable=True),
     sa.Column('venue', sa.String(length=96), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
@@ -60,7 +60,7 @@ def upgrade() -> None:
     sa.Column('kind', sa.String(length=24), nullable=False),
     sa.Column('ref', sa.String(length=48), nullable=False),
     sa.Column('payload', sa.JSON(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_model_snapshots_kind'), 'model_snapshots', ['kind'], unique=False)
@@ -71,7 +71,7 @@ def upgrade() -> None:
     sa.Column('book', sa.String(length=48), nullable=False),
     sa.Column('selection', sa.String(length=64), nullable=False),
     sa.Column('dec', sa.Float(), nullable=False),
-    sa.Column('captured_at', sa.DateTime(), nullable=False),
+    sa.Column('captured_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_odds_snapshots_market_key'), 'odds_snapshots', ['market_key'], unique=False)
@@ -92,7 +92,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('provider', sa.String(length=32), nullable=False),
     sa.Column('endpoint', sa.String(length=96), nullable=False),
-    sa.Column('called_at', sa.DateTime(), nullable=False),
+    sa.Column('called_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('team_news',
@@ -102,7 +102,7 @@ def upgrade() -> None:
     sa.Column('text', sa.Text(), nullable=False),
     sa.Column('source', sa.String(length=48), nullable=False),
     sa.Column('url', sa.String(length=256), nullable=False),
-    sa.Column('published_at', sa.DateTime(), nullable=False),
+    sa.Column('published_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_team_news_code'), 'team_news', ['code'], unique=False)
@@ -121,7 +121,7 @@ def upgrade() -> None:
     op.create_table('tournament_snapshot',
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('payload', sa.JSON(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('bankroll_transactions',
@@ -129,7 +129,7 @@ def upgrade() -> None:
     sa.Column('kind', sa.String(length=16), nullable=False),
     sa.Column('amount', sa.Float(), nullable=False),
     sa.Column('bet_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.ForeignKeyConstraint(['bet_id'], ['bets.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

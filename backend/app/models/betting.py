@@ -40,10 +40,11 @@ def devig_shin(dec_odds: list[float], iters: int = 60) -> list[float]:
     for _ in range(iters):
         denom = sum(((z * z + 4 * (1 - z) * (p**2) / booksum) ** 0.5) for p in pi)
         z_new = (denom - 2) / (len(pi) - 2) if len(pi) > 2 else 0.0
-        if abs(z_new - z) < 1e-12:
+        if abs(z_new - z) < 1e-9:
             z = z_new
             break
-        z = max(0.0, min(0.2, z_new))
+        # Damped update: raw substitution oscillates, averaging ensures convergence
+        z = max(0.0, min(0.2, (z + z_new) / 2))
     fair = []
     for p in pi:
         val = ((z * z + 4 * (1 - z) * (p**2) / booksum) ** 0.5 - z) / (2 * (1 - z))
@@ -53,7 +54,7 @@ def devig_shin(dec_odds: list[float], iters: int = 60) -> list[float]:
 
 
 def fair_probs(dec_odds: list[float], method: str = "shin") -> list[float]:
-    if method == "shin" and len(dec_odds) >= 2:
+    if method == "shin" and len(dec_odds) >= 3:
         try:
             return devig_shin(dec_odds)
         except (ValueError, ZeroDivisionError):
