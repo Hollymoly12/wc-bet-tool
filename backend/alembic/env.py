@@ -18,9 +18,12 @@ if config.config_file_name is not None:
 from app.db.base import Base  # noqa: E402
 import app.db.models  # noqa: E402, F401
 
-# Use our app Settings for the DB URL
+# Use DATABASE_URL env var if set (e.g. for autogenerate against SQLite),
+# otherwise fall back to app Settings (which may be cached via lru_cache).
+import os as _os  # noqa: E402
 from app.config import get_settings  # noqa: E402
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+_db_url = _os.environ.get("DATABASE_URL") or get_settings().database_url
+config.set_main_option("sqlalchemy.url", _db_url)
 
 target_metadata = Base.metadata
 
