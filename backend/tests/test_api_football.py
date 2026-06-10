@@ -90,6 +90,14 @@ SAMPLE_INJURIES_RESPONSE = {
 # Fixtures adapter tests
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def _no_throttle(monkeypatch):
+    """Zero the rate-limit sleeps so the suite stays fast."""
+    import app.providers.api_football as afmod
+    monkeypatch.setattr(afmod, "THROTTLE_S", 0.0)
+    monkeypatch.setattr(afmod, "RETRY_BACKOFF_S", 0.0)
+
+
 @pytest.fixture()
 def football_adapter(monkeypatch):
     a = ApiFootballAdapter.__new__(ApiFootballAdapter)

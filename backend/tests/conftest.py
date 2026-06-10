@@ -5,6 +5,23 @@ from app.db.base import Base
 import app.db.models  # noqa: F401  (register tables)
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_seed_mode(monkeypatch):
+    """Force seed mode for every test so the provider factory never hits live APIs.
+
+    pydantic-settings reads the developer's real `backend/.env`; once it holds real
+    keys, the factory would return live adapters and tests would make network calls
+    (with rate-limit throttles → a 20+ minute suite). Empty env vars override the
+    .env file, forcing the seed fallback.
+    """
+    from app.config import get_settings
+    monkeypatch.setenv("ODDS_API_KEY", "")
+    monkeypatch.setenv("API_FOOTBALL_KEY", "")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 @pytest.fixture()
 def db_session():
     # Use a named in-memory DB shared across all connections in the same process.

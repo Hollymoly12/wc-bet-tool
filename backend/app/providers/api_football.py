@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = 15.0
 _LEAGUE = 1
 _SEASON = 2026
+# Free tier allows ~10 req/min. Throttle between calibration calls; retry-after on 429.
+# Tests set these to 0 so the suite stays fast.
+THROTTLE_S = 7.0
+RETRY_BACKOFF_S = 20.0
 
 # Calibration competitions accessible on the free API-Football tier.
 # Format: (league_id, season)
@@ -61,8 +65,8 @@ class ApiFootballAdapter:
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.get(url, params=params, headers=headers)
             if resp.status_code == 429:
-                logger.warning("ApiFootballAdapter: 429 rate-limit — sleeping 20 s then retrying")
-                time.sleep(20)
+                logger.warning("ApiFootballAdapter: 429 rate-limit — backing off then retrying")
+                time.sleep(RETRY_BACKOFF_S)
                 resp = client.get(url, params=params, headers=headers)
             resp.raise_for_status()
             return resp.json()
@@ -143,7 +147,7 @@ class ApiFootballAdapter:
             # Free tier allows ~10 req/min; sleep between competition calls to
             # stay within the limit.  Skip the sleep before the very first call.
             if not first:
-                time.sleep(7)
+                time.sleep(THROTTLE_S)
             first = False
 
             url = f"{self._base}/fixtures"
