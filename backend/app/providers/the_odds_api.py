@@ -16,6 +16,7 @@ from app.providers.teamnames import fixture_id, to_code
 logger = logging.getLogger(__name__)
 
 _SPORT = "soccer_fifa_world_cup"
+_SPORT_WINNER = "soccer_fifa_world_cup_winner"
 _TIMEOUT = 15.0
 
 
@@ -100,6 +101,56 @@ class TheOddsApiAdapter:
                             market_key=mkey,
                             book=book_title,
                             selection=selection,
+                            dec=price,
+                            captured_at=now,
+                        ))
+
+        return lines
+
+    def fetch_outrights(self) -> list[OddsLine]:
+        """Fetch outright winner odds for the World Cup and return as OddsLine list.
+
+        Uses the soccer_fifa_world_cup_winner sport key with markets=outrights.
+        Each outcome name is mapped to a team code via to_code; unresolved names
+        (e.g. "No Winner", "Field") are silently skipped.
+        """
+        url = f"{self._base}/sports/{_SPORT_WINNER}/odds"
+        params = {
+            "apiKey": self._key,
+            "regions": "eu",
+            "markets": "outrights",
+            "oddsFormat": "decimal",
+        }
+
+        try:
+            events = self._get(url, params)
+        except Exception as exc:
+            logger.error("TheOddsApiAdapter.fetch_outrights failed: %s", exc)
+            return []
+
+        now = datetime.now(timezone.utc)
+        lines: list[OddsLine] = []
+
+        for event in events:
+            for bm in event.get("bookmakers", []):
+                book_title = bm.get("title", "unknown")
+                for market in bm.get("markets", []):
+                    if market.get("key") != "outrights":
+                        continue
+                    for outcome in market.get("outcomes", []):
+                        name = outcome.get("name", "")
+                        price = float(outcome.get("price", 0.0))
+                        code = to_code(name)
+                        if code is None:
+                            # Skip "No Winner", "Field", or unknown teams
+                            logger.debug(
+                                "TheOddsApiAdapter.fetch_outrights: skipping %r", name
+                            )
+                            continue
+                        lines.append(OddsLine(
+                            market_key="outright",
+                            book=book_title,
+                            selection=code,
                             dec=price,
                             captured_at=now,
                         ))
