@@ -1,8 +1,25 @@
 """Monte-Carlo simulation of the WC2026 group + knockout structure."""
 from __future__ import annotations
 from dataclasses import dataclass, field
+from functools import lru_cache
 import math
 import numpy as np
+
+
+def _seeded_slots(n: int = 32) -> list[int]:
+    """Standard seeded bracket ordering (1 vs 32, etc). Invariant across sims."""
+    slots = [1, 2]
+    while len(slots) < n:
+        length = len(slots) * 2
+        nxt: list[int] = []
+        for sidx in slots:
+            nxt += [sidx, length + 1 - sidx]
+        slots = nxt
+    return slots
+
+
+_ROUND_KEYS = ["r16", "qf", "sf", "final", "champ"]
+_BRACKET_SLOTS = _seeded_slots(32)
 
 
 @dataclass
@@ -19,6 +36,7 @@ class SimResult:
     qualifiers_example: list[str] = field(default_factory=list)
 
 
+@lru_cache(maxsize=None)
 def _pair_probs(sa: float, sb: float) -> tuple[float, float, float]:
     diff = sa - sb
     pa = 1 / (1 + 10 ** (-diff / 24))
@@ -30,7 +48,6 @@ def simulate(groups: dict[str, list[GroupTeam]], sims: int = 50000, seed: int = 
     rng = np.random.default_rng(seed)
     letters = list(groups.keys())
     all_codes = [t.code for g in groups.values() for t in g]
-    strength = {t.code: t.str_rating for g in groups.values() for t in g}
     counts = {c: {"win": 0, "qualify": 0, "r16": 0, "qf": 0, "sf": 0, "final": 0, "champ": 0}
               for c in all_codes}
     gw_counts = {L: {t.code: 0 for t in groups[L]} for L in letters}
@@ -58,15 +75,7 @@ def simulate(groups: dict[str, list[GroupTeam]], sims: int = 50000, seed: int = 
         best_thirds = sorted(thirds, key=lambda t: t.str_rating, reverse=True)[:8]
         bracket = sorted(winners + runners + best_thirds,
                          key=lambda t: t.str_rating, reverse=True)
-        # standard seeded bracket order over 32
-        slots = [1, 2]
-        while len(slots) < 32:
-            length = len(slots) * 2; nxt = []
-            for sidx in slots: nxt += [sidx, length + 1 - sidx]
-            slots = nxt
-        field32 = [bracket[s - 1] for s in slots]
-        round_keys = ["r16", "qf", "sf", "final", "champ"]
-        current = field32
+        current = [bracket[s - 1] for s in _BRACKET_SLOTS]
         ridx = 0
         while len(current) > 1:
             nxt = []
@@ -77,8 +86,8 @@ def simulate(groups: dict[str, list[GroupTeam]], sims: int = 50000, seed: int = 
                 w = a if rng.random() < wa / tot else b
                 nxt.append(w)
             for w in nxt:
-                if ridx < len(round_keys):
-                    counts[w.code][round_keys[ridx]] += 1
+                if ridx < len(_ROUND_KEYS):
+                    counts[w.code][_ROUND_KEYS[ridx]] += 1
             current = nxt; ridx += 1
         champ = current[0]
         counts[champ.code]["win"] += 1
