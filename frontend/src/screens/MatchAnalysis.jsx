@@ -4,7 +4,7 @@
 import React from 'react';
 import { Icon, EdgeBadge, VerdictChip, ProbCompare, FormDots, fmtPct, fmtSign, fmtMoney } from '../components/primitives.jsx';
 import { TeamTokenAuto } from '../components/TeamTokenWithColors.jsx';
-import { recommendedStakeStaged, stageLabel, formatOdds } from '../api.js';
+import { recommendedStake, recommendedStakeStaged, stageLabel, formatOdds } from '../api.js';
 
 const RISK_SCALER = { conservative: 0.7, balanced: 1.0, aggressive: 1.3 };
 
