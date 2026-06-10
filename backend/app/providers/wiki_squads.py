@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import Any
 
 import httpx
@@ -27,6 +28,8 @@ _WIKI_API_URL = (
 )
 
 _TIMEOUT = 20.0
+_MAX_RETRIES = 3
+_RETRY_BACKOFF_S = 8.0
 
 # Wikipedia position → our position string
 _POS_MAP: dict[str, str] = {
@@ -131,16 +134,26 @@ class WikiSquadsProvider:
     """Fetches real WC 2026 squads from Wikipedia (no API key needed)."""
 
     def _get(self, url: str) -> dict:
-        """HTTP GET *url*, return parsed JSON.  Separated for easy monkeypatching."""
+        """HTTP GET *url*, return parsed JSON.  Retries on HTTP 429 (Wikipedia
+        rate-limit) with backoff.  Separated for easy monkeypatching."""
         headers = {
-            "User-Agent": "WCBetTool/1.0 (research; contact@example.com)",
+            # Wikipedia requires a descriptive User-Agent or it rate-limits hard.
+            "User-Agent": (
+                "WCBetTool/1.0 (World Cup 2026 betting tool; "
+                "https://github.com/Hollymoly12/wc-bet-tool)"
+            ),
             "Accept": "application/json",
             "Accept-Encoding": "identity",
         }
-        with httpx.Client(timeout=_TIMEOUT) as client:
-            resp = client.get(url, headers=headers)
-            resp.raise_for_status()
-            return resp.json()
+        for attempt in range(_MAX_RETRIES):
+            with httpx.Client(timeout=_TIMEOUT) as client:
+                resp = client.get(url, headers=headers)
+                if resp.status_code == 429 and attempt < _MAX_RETRIES - 1:
+                    time.sleep(_RETRY_BACKOFF_S * (attempt + 1))
+                    continue
+                resp.raise_for_status()
+                return resp.json()
+        raise RuntimeError("wiki_squads: exhausted retries")  # pragma: no cover
 
     def fetch_squads(self) -> dict[str, list]:
         """Fetch and parse squads.  Returns ``{}`` on any failure (caller uses seed)."""

@@ -28,6 +28,17 @@ function BackBar({ onBack, crumb }) {
 
 const SQUAD_LINES = [['GK', 'Goalkeeper'], ['DEF', 'Defenders'], ['MID', 'Midfielders'], ['FWD', 'Forwards']];
 
+// Map a position abbreviation to its line. Mirrors the backend's line_of so
+// defenders/midfielders/forwards group correctly (positions are CB/CM/ST/…,
+// NOT the words "DEF"/"MID"/"FWD").
+const POS_LINE = {
+  GK: 'GK',
+  RB: 'DEF', CB: 'DEF', LB: 'DEF', RWB: 'DEF', LWB: 'DEF', DEF: 'DEF',
+  CDM: 'MID', CM: 'MID', CAM: 'MID', DM: 'MID', RM: 'MID', LM: 'MID', MID: 'MID',
+  ST: 'FWD', CF: 'FWD', RW: 'FWD', LW: 'FWD', FW: 'FWD', FWD: 'FWD',
+};
+const lineOf = (pos) => POS_LINE[(pos || '').toUpperCase()] || 'FWD';
+
 export default function TeamDetail({ code, matches, oddsFmt, go, back }) {
   const [team, setTeam] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -66,11 +77,7 @@ export default function TeamDetail({ code, matches, oddsFmt, go, back }) {
 
   const squadByLine = {};
   for (const p of (team.squad || [])) {
-    const line = p.pos?.slice(0, 3).toUpperCase() === 'GK' ? 'GK'
-      : p.pos?.toUpperCase().includes('DEF') ? 'DEF'
-      : p.pos?.toUpperCase().includes('MID') ? 'MID'
-      : p.pos?.toUpperCase().includes('FWD') || p.pos?.toUpperCase().includes('ATT') ? 'FWD'
-      : 'MID';
+    const line = lineOf(p.pos);
     if (!squadByLine[line]) squadByLine[line] = [];
     squadByLine[line].push({ ...p, line });
   }
