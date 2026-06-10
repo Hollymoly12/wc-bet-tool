@@ -30,6 +30,9 @@ def get_odds_provider():
 def get_news_provider():
     s = get_settings()
     if s.has_football_key:
+        # Real mode: structured injuries/suspensions (API-Football) + RSS headlines.
+        from app.providers.composite_news import CompositeNewsProvider
         from app.providers.injuries import InjuriesNewsProvider
-        return InjuriesNewsProvider()
+        from app.providers.rss_news import RssNewsAdapter
+        return CompositeNewsProvider([InjuriesNewsProvider(), RssNewsAdapter()])
     return SeedNewsProvider()
