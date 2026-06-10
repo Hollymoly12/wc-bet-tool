@@ -1,0 +1,60 @@
+# Scheduled data refresh — runs every 6 hours (4×/day).
+#
+# Required GitHub repository secrets:
+#   DATABASE_URL        — Supabase Postgres connection string
+#                         e.g. postgresql+psycopg://postgres:[PASSWORD]@[HOST]:5432/postgres
+#   ODDS_API_KEY        — The Odds API key (https://the-odds-api.com)
+#   API_FOOTBALL_KEY    — API-Football key (https://www.api-football.com)
+#
+# Quota note: API-Football free tier allows 100 calls/day.
+# The refresh job makes ~12-15 calls per run (one per team group + outrights).
+# At 4 runs/day × 15 calls = ~60 calls/day, staying comfortably under quota.
+# DO NOT increase the cron frequency beyond every 4 hours without checking quota.
+
+name: Refresh
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-refresh-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-refresh-
+
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -e .
+
+      - name: Migrate database
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic upgrade head
+
+      - name: Run refresh
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: python -m app.cli refresh

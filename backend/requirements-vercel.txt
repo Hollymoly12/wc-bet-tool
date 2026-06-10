@@ -1,0 +1,10 @@
+# Slim requirements for Vercel serverless read API (api/index.py).
+# NO numpy, scipy, feedparser, or httpx — those are only needed for the
+# ingestion pipeline which runs in the GitHub Actions refresh job, not on Vercel.
+fastapi>=0.110
+uvicorn>=0.29
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+pydantic>=2.6
+pydantic-settings>=2.2
+python-dateutil>=2.9

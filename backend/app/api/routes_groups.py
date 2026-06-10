@@ -2,7 +2,15 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.api.deps import DbDep, latest_tournament_snapshot
 from app.db.models import Team
-from app.services.pricing import market_from_prob
+# Lazy import: pricing transitively pulls scipy via ratings/match_model.
+# Importing inside the handler keeps this module scipy-free at load time
+# (required for the slim Vercel read-only app).
+# market_from_prob itself only uses math — the heavy chain is only triggered
+# when match_model or ratings are imported, which happens at pricing module load.
+# We wrap the call site so the import is deferred.
+def _market_from_prob(prob: float, seed: str) -> dict:
+    from app.services.pricing import market_from_prob
+    return market_from_prob(prob, seed)
 
 router = APIRouter()
 
@@ -35,8 +43,8 @@ def get_groups(db: DbDep):
             # third prob: teams can qualify as best third; we don't have clean 3rd prob
             third_prob = 0.0
 
-            gw_market = market_from_prob(gw_prob, f"{letter}:{t.code}:gw")
-            qual_market = market_from_prob(qual_prob, f"{letter}:{t.code}:qual")
+            gw_market = _market_from_prob(gw_prob, f"{letter}:{t.code}:gw")
+            qual_market = _market_from_prob(qual_prob, f"{letter}:{t.code}:qual")
 
             rows.append({
                 "code": t.code,

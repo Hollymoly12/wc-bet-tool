@@ -2,7 +2,12 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.api.deps import DbDep
 from app.db.models import Team
-from app.services.tournament_service import projected_bracket
+# Lazy import: tournament_service → tournament → numpy.
+# Deferring keeps this module numpy/scipy-free at load time
+# (required for the slim Vercel read-only app).
+def _projected_bracket(str_by_code: dict, group_of: dict) -> dict:
+    from app.services.tournament_service import projected_bracket
+    return projected_bracket(str_by_code, group_of)
 
 router = APIRouter()
 
@@ -14,7 +19,7 @@ def get_bracket(db: DbDep):
     name_by_code = {t.code: t.name for t in teams}
     group_of = {t.code: t.group for t in teams}
 
-    raw = projected_bracket(str_by_code, group_of)
+    raw = _projected_bracket(str_by_code, group_of)
 
     # Enrich codes with name
     def enrich(obj: dict | None) -> dict | None:

@@ -1,0 +1,7 @@
+{
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
+  "installCommand": "pip install -r requirements-vercel.txt",
+  "env": {
+    "DATABASE_URL": "@database_url"
+  }
+}
