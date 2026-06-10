@@ -4,7 +4,9 @@
 import React from 'react';
 import { Icon, EdgeBadge, VerdictChip, ProbCompare, FormDots, fmtPct, fmtSign, fmtMoney } from '../components/primitives.jsx';
 import { TeamTokenAuto } from '../components/TeamTokenWithColors.jsx';
-import { recommendedStake, formatOdds } from '../api.js';
+import { recommendedStakeStaged, stageLabel, formatOdds } from '../api.js';
+
+const RISK_SCALER = { conservative: 0.7, balanced: 1.0, aggressive: 1.3 };
 
 const NEWS_TAG_LABELS = { injury: 'INJURY', form: 'FORM', lineup: 'LINEUP', susp: 'SUSP', intel: 'INTEL' };
 
@@ -173,7 +175,11 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
               <div className="outcome-grid">
                 {m.legs.map((leg) => {
                   const isBest = m.best && leg.kind === m.best.kind;
-                  const stake = recommendedStake(leg.model, leg.dec, bankroll?.balance ?? 100, riskKey);
+                  // A leg is only a recommendation if it passes the value filter
+                  // (model >= 33%, odds <= 4.0, positive edge) — not just EV>0.
+                  const isValue = leg.is_value === true;
+                  const balance = bankroll?.balance ?? 100;
+                  const stake = recommendedStakeStaged(leg.model, leg.dec, balance, m.stage, RISK_SCALER[riskKey] ?? 1.0);
                   const key = `m:${m.id}:${leg.kind}`;
                   return (
                     <div key={leg.kind} className={`card outcome ${isBest ? 'best' : ''}`}>
@@ -187,17 +193,19 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
                       <div className="oc-ev">
                         <div><label>EXPECTED VALUE</label><EdgeBadge value={leg.ev} size="lg" /></div>
                         <div className="oc-stake"><label>STAKE</label>
-                          <b className="mono">{leg.ev > 0 ? fmtMoney(stake, currency) : '—'}</b>
-                          {leg.ev > 0 && bankroll?.balance > 0 && (
-                            <span className="oc-stake-pct">{Math.round(stake / bankroll.balance * 100)}% of bankroll</span>
+                          <b className="mono">{isValue ? fmtMoney(stake, currency) : '—'}</b>
+                          {isValue && balance > 0 && (
+                            <>
+                              <span className="oc-stake-pct">{Math.round(stake / balance * 100)}% · {stageLabel(m.stage)}</span>
+                            </>
                           )}</div>
                       </div>
                       <button className={`btn ${isBest ? 'primary' : 'ghost'} ${placed.has(key) ? 'is-done' : ''}`}
-                        disabled={placed.has(key) || leg.ev <= 0}
+                        disabled={placed.has(key) || !isValue}
                         onClick={() => onAdd({ key, name: leg.label, code: leg.kind === 'away' ? m.away : m.home,
                           market: `${leg.label} — ${m.homeName} v ${m.awayName}`,
                           dec: leg.dec, model: leg.model, ev: leg.ev, stake })}>
-                        {placed.has(key) ? 'Added ✓' : leg.ev > 0 ? 'Place Bet' : 'No value'}
+                        {placed.has(key) ? 'Added ✓' : isValue ? 'Place Bet' : 'No value'}
                       </button>
                     </div>
                   );
