@@ -36,8 +36,8 @@ function H2HCard({ h2h }) {
 }
 
 function MarketRow({ s, matchId, home, away, homeName, awayName, riskKey, oddsFmt, bankroll, placed, onAdd }) {
-  const stake = recommendedStake(s.model, s.dec, bankroll?.balance ?? 1000, riskKey);
-  const currency = bankroll?.currency ?? '$';
+  const stake = recommendedStake(s.model, s.dec, bankroll?.balance ?? 100, riskKey);
+  const currency = bankroll?.currency ?? '€';
   const key = s.key || `mk:${matchId}:${s.cat}:${s.kind || s.label}`;
   return (
     <div className={`mk-row`}>
@@ -77,7 +77,7 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
   }, [firstId]);
 
   const m = matches.find((x) => x.id === sel) || matches[0];
-  const currency = bankroll?.currency ?? '$';
+  const currency = bankroll?.currency ?? '€';
 
   if (!matches.length) {
     return (
@@ -161,7 +161,7 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
               <div className="outcome-grid">
                 {m.legs.map((leg) => {
                   const isBest = m.best && leg.kind === m.best.kind;
-                  const stake = recommendedStake(leg.model, leg.dec, bankroll?.balance ?? 1000, riskKey);
+                  const stake = recommendedStake(leg.model, leg.dec, bankroll?.balance ?? 100, riskKey);
                   const key = `m:${m.id}:${leg.kind}`;
                   return (
                     <div key={leg.kind} className={`card outcome ${isBest ? 'best' : ''}`}>
@@ -175,7 +175,10 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
                       <div className="oc-ev">
                         <div><label>EXPECTED VALUE</label><EdgeBadge value={leg.ev} size="lg" /></div>
                         <div className="oc-stake"><label>STAKE</label>
-                          <b className="mono">{leg.ev > 0 ? fmtMoney(stake, currency) : '—'}</b></div>
+                          <b className="mono">{leg.ev > 0 ? fmtMoney(stake, currency) : '—'}</b>
+                          {leg.ev > 0 && bankroll?.balance > 0 && (
+                            <span className="oc-stake-pct">{Math.round(stake / bankroll.balance * 100)}% of bankroll</span>
+                          )}</div>
                       </div>
                       <button className={`btn ${isBest ? 'primary' : 'ghost'} ${placed.has(key) ? 'is-done' : ''}`}
                         disabled={placed.has(key) || leg.ev <= 0}

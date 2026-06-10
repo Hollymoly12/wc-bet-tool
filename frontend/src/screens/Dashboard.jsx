@@ -36,9 +36,9 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
     );
   }
 
-  const balance = bankroll?.balance ?? 1000;
-  const start = bankroll?.start ?? 1000;
-  const currency = bankroll?.currency ?? '$';
+  const balance = bankroll?.balance ?? 100;
+  const start = bankroll?.start ?? 100;
+  const currency = bankroll?.currency ?? '€';
   const settled = bankroll?.settled_bets ?? [];
   const open = bankroll?.open_bets ?? [];
 
@@ -97,7 +97,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
             <div className="hero-cta">
               <div className="rec-stake">
                 <label>RECOMMENDED STAKE</label>
-                <b className="mono">{fmtMoney(hero.stake, currency)}</b>
+                <b className="mono">{fmtMoney(hero.stake, currency)}<span className="stake-pct"> ({balance > 0 ? Math.round(hero.stake / balance * 100) : 0}% of bankroll)</span></b>
                 <span className="ret">to return {fmtMoney(hero.stake * hero.dec, currency)}</span>
               </div>
               <button className={`btn primary ${placed.has(hero.key) ? 'is-done' : ''}`}
@@ -136,37 +136,54 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
                 <div className="vb-odds mono">{formatOdds(p.dec, oddsFmt)}</div>
                 <EdgeBadge value={p.ev} />
                 <VerdictChip ev={p.ev} />
+                <div className="vb-stake-wrap">
+                  <span className="vb-stake-amt mono">{fmtMoney(p.stake, currency)}</span>
+                  <span className="vb-stake-pct">({balance > 0 ? Math.round(p.stake / balance * 100) : 0}%)</span>
+                </div>
                 <button className={`btn ghost sm ${placed.has(p.key) ? 'is-done' : ''}`}
                   disabled={placed.has(p.key)} onClick={() => onAdd(p)}>
-                  {placed.has(p.key) ? '✓' : '+ ' + fmtMoney(p.stake, currency)}
+                  {placed.has(p.key) ? '✓' : 'Bet'}
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* upcoming fixtures */}
+        {/* upcoming fixtures — sorted chronologically by kickoff */}
         <div className="card upcoming">
           <div className="card-head"><span>Next Fixtures</span>
             <button className="link-btn" onClick={() => go('matches')}>Analyze all <Icon name="arrow" size={13} /></button>
           </div>
           <div className="up-list">
-            {matches.slice(0, 4).map((m) => (
-              m.best ? (
-                <button className="up-row" key={m.id} onClick={() => go('matches', m.id)}>
-                  <div className="up-teams">
-                    <TeamTokenAuto code={m.home} size={28} radius={7} />
-                    <span className="up-vs mono">v</span>
-                    <TeamTokenAuto code={m.away} size={28} radius={7} />
-                  </div>
-                  <div className="up-when">
-                    <span className="mono">{m.day} · {m.time}</span>
-                    <span className="up-pick">Pick: {m.best.label}</span>
-                  </div>
-                  <EdgeBadge value={m.best.ev} size="sm" />
-                </button>
-              ) : null
-            ))}
+            {[...matches]
+              .filter((m) => m.best)
+              .sort((a, b) => {
+                if (a.kickoff && b.kickoff) return new Date(a.kickoff) - new Date(b.kickoff);
+                if (a.kickoff) return -1;
+                if (b.kickoff) return 1;
+                return 0;
+              })
+              .slice(0, 4)
+              .map((m) => {
+                const kickoffLabel = m.kickoff
+                  ? new Date(m.kickoff).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }).replace(',', ' ·')
+                  : (m.day && m.time ? `${m.day} · ${m.time}` : '');
+                return (
+                  <button className="up-row" key={m.id} onClick={() => go('matches', m.id)}>
+                    <div className="up-teams">
+                      <TeamTokenAuto code={m.home} size={28} radius={7} />
+                      <span className="up-vs mono">v</span>
+                      <TeamTokenAuto code={m.away} size={28} radius={7} />
+                    </div>
+                    <div className="up-when">
+                      <span className="mono">{kickoffLabel}</span>
+                      <span className="up-pick">Pick: {m.best.label}</span>
+                    </div>
+                    <EdgeBadge value={m.best.ev} size="sm" />
+                  </button>
+                );
+              })
+            }
           </div>
         </div>
       </div>

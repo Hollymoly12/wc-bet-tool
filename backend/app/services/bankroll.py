@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.db.models import Bet, BankrollTxn
 
-START_BALANCE = 1000.0
+START_BALANCE = 100.0
 
 
 def place_bet(db: Session, key: str, pick: str, team: str, market: str,
@@ -89,6 +89,7 @@ def get_bankroll_state(db: Session) -> dict:
     return {
         "balance": balance,
         "start": START_BALANCE,
+        "currency": "€",
         "open_bets": open_bets,
         "settled_bets": settled_bets,
     }

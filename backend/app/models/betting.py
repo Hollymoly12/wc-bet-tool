@@ -64,8 +64,13 @@ def fair_probs(dec_odds: list[float], method: str = "shin") -> list[float]:
 
 def recommended_stake(p: float, dec: float, bankroll: float, risk: str = "balanced") -> int:
     r = RISK.get(risk, RISK["balanced"])
-    f = min(kelly_full(p, dec) * r["mult"], r["cap"])
-    return int(round((bankroll * f) / 5.0)) * 5
+    raw_f = kelly_full(p, dec) * r["mult"]
+    f = min(raw_f, r["cap"])
+    stake = int(round(bankroll * f))
+    # Ensure a genuine positive-edge bet doesn't silently round to €0
+    if stake == 0 and raw_f > 0 and bankroll * f >= 0.5:
+        stake = 1
+    return stake
 
 
 def verdict(edge: float) -> str:

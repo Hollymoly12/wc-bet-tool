@@ -10,8 +10,8 @@ export default function OutrightBoard({ outright, bankroll, riskKey, oddsFmt, pl
   const [sort, setSort] = React.useState('ev');
   const [valueOnly, setValueOnly] = React.useState(false);
 
-  const balance = bankroll?.balance ?? 1000;
-  const currency = bankroll?.currency ?? '$';
+  const balance = bankroll?.balance ?? 100;
+  const currency = bankroll?.currency ?? '€';
 
   const rows = React.useMemo(() => {
     let r = outright.map((t) => ({

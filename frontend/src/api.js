@@ -262,8 +262,12 @@ function kellyFull(p, dec) {
 
 export function recommendedStake(p, dec, bankroll, riskKey = 'balanced') {
   const r = RISK[riskKey] || RISK.balanced;
-  const f = Math.min(kellyFull(p, dec) * r.mult, r.cap);
-  return Math.round((bankroll * f) / 5) * 5;
+  const rawF = kellyFull(p, dec) * r.mult;
+  const f = Math.min(rawF, r.cap);
+  const stake = Math.round(bankroll * f);
+  // Ensure a genuine positive-edge bet doesn't round to €0
+  if (stake === 0 && rawF > 0 && bankroll * f >= 0.5) return 1;
+  return stake;
 }
 
 export function formatOdds(dec, fmt = 'decimal') {

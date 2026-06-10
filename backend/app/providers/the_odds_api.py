@@ -76,6 +76,15 @@ class TheOddsApiAdapter:
 
             mkey = f"h2h:{fixture_id(home_code, away_code)}"
 
+            # Parse commence_time (ISO 8601 UTC, e.g. "2026-06-11T19:00:00Z")
+            ct_raw = event.get("commence_time")
+            commence_time: datetime | None = None
+            if ct_raw:
+                try:
+                    commence_time = datetime.fromisoformat(ct_raw.replace("Z", "+00:00"))
+                except (ValueError, AttributeError):
+                    commence_time = None
+
             for bm in event.get("bookmakers", []):
                 book_title = bm.get("title", "unknown")
                 for market in bm.get("markets", []):
@@ -103,6 +112,7 @@ class TheOddsApiAdapter:
                             selection=selection,
                             dec=price,
                             captured_at=now,
+                            commence_time=commence_time,
                         ))
 
         return lines

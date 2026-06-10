@@ -161,14 +161,17 @@ def _persist_results(db: Session, results) -> list[dict]:
     return raw_rows
 
 
-def _persist_odds(db: Session, lines) -> dict[str, dict]:
-    """Persist OddsSnapshot rows and return grouped by market_key.
+def _persist_odds(db: Session, lines) -> tuple[dict[str, dict], dict[str, "datetime | None"]]:
+    """Persist OddsSnapshot rows and return (grouped, kickoff_by_market).
 
-    For h2h markets, the grouped dict maps selection → avg_dec across books.
-    For outright markets, maps team_code → avg_dec across books.
+    grouped: for h2h markets maps selection → avg_dec across books;
+             for outright markets maps team_code → avg_dec across books.
+    kickoff_by_market: maps market_key → first non-None commence_time seen.
     """
+    from datetime import datetime as _datetime
     # First, group all decimals per (market_key, selection) across books
     accumulator: dict[str, dict[str, list[float]]] = {}
+    kickoff_by_market: dict[str, "_datetime | None"] = {}
     for line in lines:
         db.add(OddsSnapshot(
             market_key=line.market_key,
@@ -178,13 +181,17 @@ def _persist_odds(db: Session, lines) -> dict[str, dict]:
             captured_at=line.captured_at,
         ))
         accumulator.setdefault(line.market_key, {}).setdefault(line.selection, []).append(line.dec)
+        # Capture first non-None commence_time per market_key
+        ct = getattr(line, "commence_time", None)
+        if ct is not None and kickoff_by_market.get(line.market_key) is None:
+            kickoff_by_market[line.market_key] = ct
 
     # Average across books
     grouped: dict[str, dict] = {}
     for mkey, sel_lists in accumulator.items():
         grouped[mkey] = {sel: mean(decs) for sel, decs in sel_lists.items()}
 
-    return grouped
+    return grouped, kickoff_by_market
 
 
 def _ensure_all_in_ratings(ratings: RatingsModel, codes: list[str]) -> RatingsModel:
@@ -283,7 +290,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
     db.flush()
 
     # --- 7. Persist odds snapshots + build grouped lookup ---
-    odds_grouped = _persist_odds(db, all_lines)
+    odds_grouped, kickoff_by_market = _persist_odds(db, all_lines)
     db.flush()
 
     # --- 8. Fit ratings on historical results ---
@@ -391,6 +398,9 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
                 market_odds=market_odds_input,
                 str_by_code=str_by_code,
             )
+            # Attach kickoff from commence_time if available
+            ko = kickoff_by_market.get(mkey)
+            snap_payload["kickoff"] = ko.isoformat() if ko else None
             db.add(ModelSnapshot(
                 kind="match",
                 ref=match_id,
@@ -417,6 +427,8 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
                 market_odds=market_odds_input,
                 str_by_code=str_by_code,
             )
+            # Seed mode has no real commence_time; kickoff is None
+            snap_payload["kickoff"] = None
             db.add(ModelSnapshot(
                 kind="match",
                 ref=fixture.id,

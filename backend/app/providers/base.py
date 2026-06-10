@@ -12,6 +12,7 @@ class OddsLine:
     selection: str        # "home"|"draw"|"away"|team code|"Over 2.5"...
     dec: float
     captured_at: datetime
+    commence_time: datetime | None = None
 
 
 @dataclass

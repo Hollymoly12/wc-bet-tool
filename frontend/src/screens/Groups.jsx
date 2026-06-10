@@ -8,8 +8,8 @@ import { recommendedStake, formatOdds } from '../api.js';
 
 function GroupBetChip({ marketKey, label, code, name, letter, mkt, riskKey, bankroll, oddsFmt, placed, onAdd }) {
   const key = `${marketKey}:${code}`;
-  const stake = recommendedStake(mkt.model, mkt.dec, bankroll?.balance ?? 1000, riskKey);
-  const currency = bankroll?.currency ?? '$';
+  const stake = recommendedStake(mkt.model, mkt.dec, bankroll?.balance ?? 100, riskKey);
+  const currency = bankroll?.currency ?? '€';
   const done = placed.has(key);
   return (
     <button

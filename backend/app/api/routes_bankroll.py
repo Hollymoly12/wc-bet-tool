@@ -30,6 +30,7 @@ def get_bankroll(db: DbDep):
     return {
         "balance": state["balance"],
         "start": state["start"],
+        "currency": state.get("currency", "€"),
         "open_bets": [_bet_to_dict(b) for b in state["open_bets"]],
         "settled_bets": [_bet_to_dict(b) for b in state["settled_bets"]],
     }

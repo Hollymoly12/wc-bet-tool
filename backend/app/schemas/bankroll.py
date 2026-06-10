@@ -32,5 +32,6 @@ class SettleIn(BaseModel):
 class BankrollResponse(BaseModel):
     balance: float
     start: float
+    currency: str = "€"
     open_bets: list[BetOut]
     settled_bets: list[BetOut]

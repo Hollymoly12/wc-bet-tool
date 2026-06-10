@@ -7,7 +7,7 @@ import React from 'react';
 /* ---- formatting helpers ------------------------------------------------- */
 export const fmtPct = (n, d = 1) => `${(n * 100).toFixed(d)}%`;
 export const fmtSign = (n, d = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n * 100).toFixed(d)}%`;
-export const fmtMoney = (n, sym = '$') =>
+export const fmtMoney = (n, sym = '€') =>
   `${n < 0 ? '−' : ''}${sym}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 
 /* ---- count-up hook ------------------------------------------------------ */

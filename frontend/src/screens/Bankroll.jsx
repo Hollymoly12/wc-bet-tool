@@ -7,9 +7,9 @@ import { TeamTokenAuto } from '../components/TeamTokenWithColors.jsx';
 import { formatOdds, buildBankrollHistory, deleteBet, settleBet } from '../api.js';
 
 export default function BankrollScreen({ bankroll, oddsFmt, openBets, onRemove, onBankrollRefresh }) {
-  const balance = bankroll?.balance ?? 1000;
-  const start = bankroll?.start ?? 1000;
-  const currency = bankroll?.currency ?? '$';
+  const balance = bankroll?.balance ?? 100;
+  const start = bankroll?.start ?? 100;
+  const currency = bankroll?.currency ?? '€';
   const settled = bankroll?.settled_bets ?? [];
   const open = bankroll?.open_bets ?? [];
 

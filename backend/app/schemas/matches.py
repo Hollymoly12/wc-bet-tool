@@ -28,6 +28,7 @@ class MatchSummary(BaseModel):
     xg: list[float]
     conf: int
     best: MatchLeg | None = None
+    kickoff: str | None = None
 
 
 class MatchDetail(MatchSummary):

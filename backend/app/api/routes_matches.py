@@ -18,6 +18,11 @@ def _enrich_match(payload: dict, match: Match | None, db) -> dict:
     meta = _MATCH_META.get(payload["id"], {"day": "", "time": ""})
     home_team = db.get(Team, payload["home"]) if match else None
     away_team = db.get(Team, payload["away"]) if match else None
+    # Prefer kickoff from the snapshot payload (set during ingestion from commence_time),
+    # fall back to Match.kickoff DB field (from FixtureDTO), then None.
+    kickoff = payload.get("kickoff")
+    if kickoff is None and match is not None and match.kickoff is not None:
+        kickoff = match.kickoff.isoformat()
     return {
         **payload,
         "homeName": home_team.name if home_team else payload.get("home", ""),
@@ -26,6 +31,7 @@ def _enrich_match(payload: dict, match: Match | None, db) -> dict:
         "day": meta["day"],
         "time": meta["time"],
         "venue": match.venue if match else "",
+        "kickoff": kickoff,
     }
 
 

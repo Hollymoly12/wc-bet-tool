@@ -97,7 +97,7 @@ export default function App() {
         if (bankrollData.status === 'fulfilled') {
           const br = bankrollData.value || null;
           // API doesn't include currency field — inject default
-          setBankroll(br ? { currency: '$', ...br } : null);
+          setBankroll(br ? { currency: '€', ...br } : null);
         }
 
         setLoadError(null);
@@ -135,7 +135,7 @@ export default function App() {
     if (placed.has(play.key)) return;
     setOpenBets((b) => [...b, play]);
     setPlaced((p) => new Set(p).add(play.key));
-    setToast(`Added — ${fmtMoney(play.stake, bankroll?.currency ?? '$')} on ${play.name}`);
+    setToast(`Added — ${fmtMoney(play.stake, bankroll?.currency ?? '€')} on ${play.name}`);
     // Try to persist to backend
     try {
       await placeBet(play);
@@ -182,8 +182,8 @@ export default function App() {
     );
   }
 
-  const balance = bankroll?.balance ?? 1000;
-  const currency = bankroll?.currency ?? '$';
+  const balance = bankroll?.balance ?? 100;
+  const currency = bankroll?.currency ?? '€';
 
   const commonProps = {
     outright, matches, groups, teams, bankroll,

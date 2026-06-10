@@ -15,20 +15,21 @@ def test_bankroll_empty(c):
     r = c.get("/bankroll")
     assert r.status_code == 200
     data = r.json()
-    assert data["balance"] == 1000.0
-    assert data["start"] == 1000.0
+    assert data["balance"] == 100.0
+    assert data["start"] == 100.0
+    assert data["currency"] == "€"
     assert data["open_bets"] == []
     assert data["settled_bets"] == []
 
 
 def test_place_bet(c):
     payload = {"key": "m:m1:home", "pick": "ESP to win", "team": "ESP",
-               "market": "1x2", "stake": 50.0, "dec": 1.75}
+               "market": "1x2", "stake": 5.0, "dec": 1.75}
     r = c.post("/bankroll/bets", json=payload)
     assert r.status_code == 201
     bet = r.json()
     assert bet["status"] == "open"
-    assert bet["stake"] == 50.0
+    assert bet["stake"] == 5.0
     assert bet["dec"] == 1.75
     assert bet["id"] is not None
 
@@ -37,12 +38,12 @@ def test_place_bet(c):
     data = r2.json()
     assert len(data["open_bets"]) == 1
     # balance unchanged (no settled pnl)
-    assert data["balance"] == 1000.0
+    assert data["balance"] == 100.0
 
 
 def test_settle_won(c):
     payload = {"key": "m:m1:home", "pick": "ESP win", "team": "ESP",
-               "market": "1x2", "stake": 100.0, "dec": 2.0}
+               "market": "1x2", "stake": 10.0, "dec": 2.0}
     r = c.post("/bankroll/bets", json=payload)
     bet_id = r.json()["id"]
 
@@ -50,33 +51,33 @@ def test_settle_won(c):
     assert r2.status_code == 200
     settled = r2.json()
     assert settled["status"] == "won"
-    assert settled["pnl"] == pytest.approx(100.0)
+    assert settled["pnl"] == pytest.approx(10.0)
 
     r3 = c.get("/bankroll")
     data = r3.json()
-    assert data["balance"] == pytest.approx(1100.0)
+    assert data["balance"] == pytest.approx(110.0)
     assert len(data["settled_bets"]) == 1
 
 
 def test_settle_lost(c):
     payload = {"key": "m:m1:draw", "pick": "draw", "team": "",
-               "market": "1x2", "stake": 50.0, "dec": 3.5}
+               "market": "1x2", "stake": 5.0, "dec": 3.5}
     r = c.post("/bankroll/bets", json=payload)
     bet_id = r.json()["id"]
 
     r2 = c.post(f"/bankroll/bets/{bet_id}/settle", json={"result": "lost"})
     assert r2.status_code == 200
     settled = r2.json()
-    assert settled["pnl"] == pytest.approx(-50.0)
+    assert settled["pnl"] == pytest.approx(-5.0)
     assert settled["status"] == "lost"
 
     r3 = c.get("/bankroll")
-    assert r3.json()["balance"] == pytest.approx(950.0)
+    assert r3.json()["balance"] == pytest.approx(95.0)
 
 
 def test_settle_void(c):
     payload = {"key": "m:m1:void", "pick": "void test", "team": "",
-               "market": "1x2", "stake": 50.0, "dec": 2.0}
+               "market": "1x2", "stake": 5.0, "dec": 2.0}
     r = c.post("/bankroll/bets", json=payload)
     bet_id = r.json()["id"]
 
@@ -86,7 +87,7 @@ def test_settle_void(c):
     assert r2.json()["status"] == "void"
 
     r3 = c.get("/bankroll")
-    assert r3.json()["balance"] == pytest.approx(1000.0)
+    assert r3.json()["balance"] == pytest.approx(100.0)
 
 
 def test_delete_open_bet(c):
