@@ -1,3 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# Only `app` is an installable package. `api/` (Vercel entrypoint), `tests/`,
+# `alembic/` and `scripts/` are top-level dirs but NOT packages to install —
+# without this, setuptools flat-layout auto-discovery errors on multiple
+# top-level packages and `pip install -e .` fails (e.g. on CI / Vercel).
+include = ["app*"]
+
 [project]
 name = "wc-bet-tool-backend"
 version = "0.1.0"
