@@ -126,6 +126,12 @@ NAMES = {
     "JAM": "Jamaica",      "CIV": "Ivory Coast",   "PAR": "Paraguay",     "TUN": "Tunisia",
     "VEN": "Venezuela",    "UKR": "Ukraine",       "IRQ": "Iraq",         "AUT": "Austria",
     "CMR": "Cameroon",     "NOR": "Norway",        "ALG": "Algeria",      "TUR": "Türkiye",
+    # 9 new teams (real WC 2026 participants not in original seed)
+    "CZE": "Czech Republic",      "RSA": "South Africa",
+    "BIH": "Bosnia & Herzegovina","HAI": "Haiti",
+    "SCO": "Scotland",            "CUW": "Curaçao",
+    "SWE": "Sweden",              "CPV": "Cape Verde",
+    "COD": "DR Congo",
 }
 
 # ---------------------------------------------------------------------------
@@ -156,6 +162,12 @@ COLORS = {
     "IRQ": ["#007A3D", "#CE1126"], "AUT": ["#ED2939", "#FFFFFF"],
     "CMR": ["#007A5E", "#CE1126"], "NOR": ["#BA0C2F", "#00205B"],
     "ALG": ["#006233", "#D21034"], "TUR": ["#E30A17", "#FFFFFF"],
+    # 9 new teams (real WC 2026 participants not in original seed)
+    "CZE": ["#11457E", "#D7141A"], "RSA": ["#007A4D", "#FFB915"],
+    "BIH": ["#002395", "#FECB00"], "HAI": ["#00209F", "#D21034"],
+    "SCO": ["#005EB8", "#FFFFFF"], "CUW": ["#002B7F", "#F9E814"],
+    "SWE": ["#006AA7", "#FECC00"], "CPV": ["#003893", "#CF2027"],
+    "COD": ["#007FFF", "#F7D618"],
 }
 
 GROUP_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]

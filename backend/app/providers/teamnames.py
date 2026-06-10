@@ -15,28 +15,54 @@ logger = logging.getLogger(__name__)
 # from our canonical NAMES values.
 ALIASES: dict[str, str] = {
     # USA
-    "united states":        "USA",
-    "us":                   "USA",
+    "united states":                    "USA",
+    "us":                               "USA",
     # South Korea
-    "korea republic":       "KOR",
-    "republic of korea":    "KOR",
+    "korea republic":                   "KOR",
+    "republic of korea":                "KOR",
+    "south korea":                      "KOR",
     # Turkey
-    "turkey":               "TUR",
-    "turkiye":              "TUR",
+    "turkey":                           "TUR",
+    "turkiye":                          "TUR",
+    "türkiye":                          "TUR",
     # Ivory Coast
-    "cote d'ivoire":        "CIV",
-    "côte d'ivoire":        "CIV",
-    "ivory coast":          "CIV",
+    "cote d'ivoire":                    "CIV",
+    "côte d'ivoire":                    "CIV",
+    "ivory coast":                      "CIV",
+    "cote divoire":                     "CIV",
     # Iran
-    "ir iran":              "IRN",
+    "ir iran":                          "IRN",
+    "iran":                             "IRN",
     # New Zealand
-    "new zealand":          "NZL",
+    "new zealand":                      "NZL",
     # Saudi Arabia
-    "saudi arabia":         "KSA",
+    "saudi arabia":                     "KSA",
     # Costa Rica
-    "costa rica":           "CRC",
-    # "côte d'ivoire" without accent
-    "cote divoire":         "CIV",
+    "costa rica":                       "CRC",
+    # Czech Republic
+    "czech republic":                   "CZE",
+    # South Africa
+    "south africa":                     "RSA",
+    # Bosnia & Herzegovina
+    "bosnia & herzegovina":             "BIH",
+    "bosnia and herzegovina":           "BIH",
+    # Haiti
+    "haiti":                            "HAI",
+    # Scotland
+    "scotland":                         "SCO",
+    # Curaçao
+    "curaçao":                          "CUW",
+    "curacao":                          "CUW",
+    # Sweden
+    "sweden":                           "SWE",
+    # Cape Verde
+    "cape verde":                       "CPV",
+    "cabo verde":                       "CPV",
+    # DR Congo
+    "dr congo":                         "COD",
+    "congo dr":                         "COD",
+    "democratic republic of congo":     "COD",
+    "democratic republic of the congo": "COD",
 }
 
 
