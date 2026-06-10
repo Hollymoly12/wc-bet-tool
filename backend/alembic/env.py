@@ -23,7 +23,10 @@ import app.db.models  # noqa: E402, F401
 import os as _os  # noqa: E402
 from app.config import get_settings  # noqa: E402
 _db_url = _os.environ.get("DATABASE_URL") or get_settings().database_url
-config.set_main_option("sqlalchemy.url", _db_url)
+# Escape % so ConfigParser doesn't treat percent-encoded URL chars (e.g. a
+# password containing %40/%2A) as interpolation syntax. ConfigParser un-escapes
+# %% -> % when the value is read back, yielding the correct URL.
+config.set_main_option("sqlalchemy.url", _db_url.replace("%", "%%"))
 
 target_metadata = Base.metadata
 
