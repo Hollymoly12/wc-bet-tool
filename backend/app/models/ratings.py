@@ -83,7 +83,11 @@ def fit_ratings(history: list[dict], codes: list[str], halflife_days: float = 54
     atk, df, home_adv, rho, base = unpack(res.x)
     atk = atk - atk.mean(); df = df - df.mean()
     teams = {}
-    nets = atk - df
+    # Overall strength = attack + defense. In this parametrisation a higher
+    # `defense` means a BETTER defence (opponent lambda = exp(... - defense)),
+    # so a strong team has BOTH high attack and high defense. (attack - defense
+    # is degenerate: balanced strong and balanced weak teams both score ~0.)
+    nets = atk + df
     lo, hi = float(nets.min()), float(nets.max())
     for c in codes:
         i = idx[c]

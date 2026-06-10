@@ -20,8 +20,10 @@ def test_fit_returns_ratings_per_team():
 def test_stronger_team_has_higher_net_rating():
     r = fit_ratings(_history(), codes=["ARG", "NGA"], halflife_days=540)
     arg = r.teams["ARG"]; nga = r.teams["NGA"]
-    # net = attack - defense ; ARG should dominate
-    assert (arg.attack - arg.defense) > (nga.attack - nga.defense)
+    # strength = attack + defense (higher defense = better defence) ; ARG dominates.
+    # Also assert via str_rating, the metric actually consumed downstream.
+    assert (arg.attack + arg.defense) > (nga.attack + nga.defense)
+    assert arg.str_rating > nga.str_rating
 
 
 def test_home_advantage_positive():

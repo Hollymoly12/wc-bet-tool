@@ -315,9 +315,10 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
     valid_dec = {c: d for c, d in dec_by_code.items() if c in ratings.teams}
 
     # --- 10. Compute blended market-anchored strengths ---
-    # model_net: Dixon-Coles net rating per code
+    # model_net: Dixon-Coles overall strength = attack + defense (higher defense
+    # = better defence here, so strength is the sum, not the difference).
     model_net = {
-        c: ratings.teams[c].attack - ratings.teams[c].defense
+        c: ratings.teams[c].attack + ratings.teams[c].defense
         for c in universe_codes
         if c in ratings.teams
     }
