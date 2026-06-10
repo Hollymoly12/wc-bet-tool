@@ -64,7 +64,17 @@ const MK_TABS = [['All', 'All'], ['Match Result', 'Result'], ['Double Chance', '
   ['Draw No Bet', 'DNB'], ['Total Goals', 'Goals'], ['Both Teams Score', 'BTTS']];
 
 export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, oddsFmt, placed, onAdd, focusId, goTeam }) {
-  const firstId = matches[0]?.id;
+  // Chronological order by kickoff (matches without a kickoff go last).
+  const sortedMatches = React.useMemo(
+    () => [...matches].sort((a, b) => {
+      if (!a.kickoff && !b.kickoff) return 0;
+      if (!a.kickoff) return 1;
+      if (!b.kickoff) return -1;
+      return new Date(a.kickoff) - new Date(b.kickoff);
+    }),
+    [matches],
+  );
+  const firstId = sortedMatches[0]?.id;
   const [sel, setSel] = React.useState(focusId || firstId || null);
   const [mkCat, setMkCat] = React.useState('All');
 
@@ -76,7 +86,7 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
     if (!sel && firstId) setSel(firstId);
   }, [firstId]);
 
-  const m = matches.find((x) => x.id === sel) || matches[0];
+  const m = matches.find((x) => x.id === sel) || sortedMatches[0];
   const currency = bankroll?.currency ?? '€';
 
   if (!matches.length) {
@@ -109,7 +119,7 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
       <div className="match-layout">
         {/* match list sidebar */}
         <div className="match-list">
-          {matches.map((x) => (
+          {sortedMatches.map((x) => (
             <button key={x.id} className={`ml-row ${x.id === sel ? 'on' : ''}`} onClick={() => setSel(x.id)}>
               <div className="ml-teams">
                 <TeamTokenAuto code={x.home} size={26} radius={6} />
@@ -117,7 +127,9 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
               </div>
               <div className="ml-info">
                 <div className="ml-name">{x.home} <span className="dim">v</span> {x.away}</div>
-                <div className="ml-when mono">{x.day} · {x.time}</div>
+                <div className="ml-when mono">{x.kickoff
+                  ? new Date(x.kickoff).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false }).replace(',', ' ·')
+                  : `${x.day} · ${x.time}`}</div>
               </div>
               {x.best && <EdgeBadge value={x.best.ev} size="sm" />}
             </button>
