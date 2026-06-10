@@ -2,15 +2,9 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.api.deps import DbDep, latest_tournament_snapshot
 from app.db.models import Team
-# Lazy import: pricing transitively pulls scipy via ratings/match_model.
-# Importing inside the handler keeps this module scipy-free at load time
-# (required for the slim Vercel read-only app).
-# market_from_prob itself only uses math — the heavy chain is only triggered
-# when match_model or ratings are imported, which happens at pricing module load.
-# We wrap the call site so the import is deferred.
-def _market_from_prob(prob: float, seed: str) -> dict:
-    from app.services.pricing import market_from_prob
-    return market_from_prob(prob, seed)
+# market_util is scipy/numpy-free, so /groups stays importable on the slim
+# Vercel read API without pulling the ratings/match_model chain.
+from app.services.market_util import market_from_prob as _market_from_prob
 
 router = APIRouter()
 
