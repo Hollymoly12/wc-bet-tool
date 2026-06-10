@@ -184,6 +184,7 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--ui-font);
 .rec-stake b{ font-size:24px; font-weight:800; }
 .rec-stake .ret{ display:block; font-size:11px; color:var(--muted); font-family:var(--mono); }
 .rec-stake .stake-pct{ font-size:13px; font-weight:500; color:var(--muted); margin-left:5px; }
+.rec-stake .stage-tag{ display:inline-block; margin-top:4px; font-family:var(--mono); font-size:9px; letter-spacing:.1em; font-weight:700; padding:2px 7px; border-radius:4px; background:rgba(198,255,58,.13); color:var(--accent); text-transform:uppercase; }
 
 .bankroll-snap{ grid-area:snap; cursor:pointer; transition:.16s; }
 .bankroll-snap:hover{ border-color:var(--line-2); }
@@ -205,6 +206,7 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--ui-font);
 .vb-type.t-outright{ background:rgba(255,255,255,.07); color:var(--muted); }
 .vb-type.t-match{ background:rgba(52,229,255,.12); color:#5fe3ff; }
 .vb-market{ font-size:12px; color:var(--faint); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:280px; }
+.vb-stage-tag{ font-family:var(--mono); font-size:9px; letter-spacing:.08em; font-weight:600; color:var(--accent); opacity:.75; margin-top:2px; }
 .vb-odds{ font-size:14px; font-weight:600; width:62px; text-align:right; }
 .vb-stake-wrap{ display:flex; flex-direction:column; align-items:flex-end; min-width:52px; }
 .vb-stake-amt{ font-size:13px; font-weight:700; }
@@ -573,6 +575,7 @@ body{ background:var(--bg); color:var(--ink); font-family:var(--ui-font);
 .result.won{ background:rgba(198,255,58,.14); color:var(--accent); }
 .result.lost{ background:rgba(255,83,71,.13); color:var(--neg); }
 .empty{ padding:34px; text-align:center; color:var(--faint); font-size:13.5px; }
+.empty-note{ padding:14px 4px; color:var(--faint); font-size:12px; text-align:center; }
 
 /* ===== loading / error states ===== */
 .loading-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center;

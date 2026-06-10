@@ -7,6 +7,12 @@ RISK = {
     "aggressive": {"label": "Aggressive", "mult": 1.00, "cap": 0.12},
 }
 
+# Stage-aware staking: group stage = conservative fractional-Kelly; knockouts = larger
+STAGE_STAKING = {
+    "group":    {"mult": 0.25, "cap": 0.03},
+    "knockout": {"mult": 0.50, "cap": 0.07},
+}
+
 
 def implied_prob(dec: float) -> float:
     return 1.0 / dec
@@ -73,15 +79,63 @@ def recommended_stake(p: float, dec: float, bankroll: float, risk: str = "balanc
     return stake
 
 
-def verdict(edge: float) -> str:
-    """edge = p_model - p_fair."""
+def recommended_stake_staged(p: float, dec: float, bankroll: float, stage: str = "group") -> int:
+    """Stage-aware staking: group = ¼-Kelly capped 3%; knockout = ½-Kelly capped 7%.
+
+    Outright / non-match bets should use the default 'group' params (conservative).
+    """
+    params = STAGE_STAKING.get(stage, STAGE_STAKING["group"])
+    raw_f = kelly_full(p, dec) * params["mult"]
+    f = min(raw_f, params["cap"])
+    stake = int(round(bankroll * f))
+    # Ensure a genuine positive-edge bet doesn't silently round to €0
+    if stake == 0 and raw_f > 0 and bankroll * f >= 0.5:
+        stake = 1
+    return stake
+
+
+def value_score(p_model: float, fair: float) -> float:
+    """Balanced value score: edge × probability.
+
+    Rewards large edges on likely outcomes; penalises longshots with tiny edges.
+    """
+    return (p_model - fair) * p_model
+
+
+def is_value_pick(
+    p_model: float,
+    dec: float,
+    fair: float,
+    min_prob: float = 0.33,
+    max_dec: float = 4.0,
+) -> bool:
+    """Return True only when all three filters pass:
+    - probability is high enough (≥ min_prob)
+    - odds are not longshot territory (≤ max_dec)
+    - model has genuine positive edge over fair price
+    """
+    return p_model >= min_prob and dec <= max_dec and (p_model - fair) > 0
+
+
+def verdict(edge: float, p_model: float | None = None) -> str:
+    """edge = p_model - p_fair.
+
+    If p_model < 0.20 the verdict is capped at 'value' (never 'strong'),
+    since longshots with large edge are speculative, not strong convictions.
+    Pass p_model=None to get the original thresholds (backward compat).
+    """
     if edge >= 0.10:
-        return "strong"
-    if edge >= 0.03:
-        return "value"
-    if edge >= -0.01:
-        return "pass"
-    return "avoid"
+        label = "strong"
+    elif edge >= 0.03:
+        label = "value"
+    elif edge >= -0.01:
+        label = "pass"
+    else:
+        label = "avoid"
+    # Cap longshots: if probability < 20%, never call it 'strong'
+    if p_model is not None and p_model < 0.20 and label == "strong":
+        label = "value"
+    return label
 
 
 def confidence(model_prob: float, coverage: float = 1.0) -> int:

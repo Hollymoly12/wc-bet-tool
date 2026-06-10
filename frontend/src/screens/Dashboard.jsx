@@ -4,27 +4,65 @@
 import React from 'react';
 import { Icon, EdgeBadge, VerdictChip, ProbCompare, AreaChart, BalanceNumber, fmtPct, fmtSign, fmtMoney } from '../components/primitives.jsx';
 import { TeamTokenAuto } from '../components/TeamTokenWithColors.jsx';
-import { recommendedStake, formatOdds, buildBankrollHistory } from '../api.js';
+import {
+  recommendedStakeStaged, stageLabel,
+  valueScore, isValuePick,
+  formatOdds, buildBankrollHistory,
+} from '../api.js';
 
+// Risk selector scales the staged stake (Conservative ×0.7 / Balanced ×1.0 / Aggressive ×1.3)
+const RISK_SCALER = { conservative: 0.7, balanced: 1.0, aggressive: 1.3 };
+
+/**
+ * Build the value-play list using balanced-value filtering:
+ *   - model >= 0.33 AND dec <= 4.0 AND edge > 0
+ * Ranked by value_score = edge * model (not raw EV).
+ * Outright rows are filtered to those that pass (rare: champion prob rarely ≥ 33%).
+ * Match rows come from the API's pre-computed best leg (which already passed the filter).
+ */
 function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
-  const out = outright.map((t) => ({
-    key: 'o:' + t.code, type: 'Outright', market: 'To win the World Cup',
-    code: t.code, name: t.name, dec: t.dec, model: t.model, implied: t.implied,
-    ev: t.ev, conf: t.conf,
-    stake: recommendedStake(t.model, t.dec, bankrollBalance, riskKey),
-  }));
+  const scaler = RISK_SCALER[riskKey] ?? 1.0;
+
+  // Outright plays: apply same balanced-value filter
+  const out = outright
+    .filter((t) => isValuePick(t.model, t.dec, t.edge ?? (t.model - t.fair)))
+    .map((t) => {
+      const edge = t.edge ?? (t.model - (t.fair ?? t.implied));
+      return {
+        key: 'o:' + t.code, type: 'Outright', market: 'To win the World Cup',
+        code: t.code, name: t.name, dec: t.dec, model: t.model, implied: t.implied,
+        ev: t.ev, edge, fair: t.fair ?? t.implied, conf: t.conf,
+        stage: 'group', // outright bets use conservative group params
+        valueScore: valueScore(t.model, t.fair ?? t.implied),
+        stake: recommendedStakeStaged(t.model, t.dec, bankrollBalance, 'group', scaler),
+      };
+    });
+
+  // Match plays: API pre-selects the best value leg per match via value_score filter.
+  // m.best is null when no leg passes the filter — we skip those.
   const mt = matches
-    .filter((m) => m.best)
-    .map((m) => ({
-      key: 'm:' + m.id + ':' + m.best.kind, type: 'Match',
-      market: (m.best.label || 'Result') + ' — ' + m.homeName + ' v ' + m.awayName,
-      code: m.best.kind === 'away' ? m.away : m.home,
-      name: m.best.label || 'Match result',
-      dec: m.best.dec, model: m.best.model, implied: m.best.implied,
-      ev: m.best.ev, conf: m.conf,
-      stake: recommendedStake(m.best.model, m.best.dec, bankrollBalance, riskKey),
-    }));
-  return [...out, ...mt].filter((p) => p.ev != null).sort((a, b) => b.ev - a.ev);
+    .filter((m) => m.best && isValuePick(m.best.model, m.best.dec, m.best.edge ?? 0))
+    .map((m) => {
+      const leg = m.best;
+      const edge = leg.edge ?? (leg.model - (leg.fair ?? leg.implied));
+      const stage = m.stage || 'group';
+      return {
+        key: 'm:' + m.id + ':' + leg.kind, type: 'Match',
+        market: (leg.label || 'Result') + ' — ' + m.homeName + ' v ' + m.awayName,
+        code: leg.kind === 'away' ? m.away : m.home,
+        name: leg.label || 'Match result',
+        dec: leg.dec, model: leg.model, implied: leg.implied,
+        ev: leg.ev, edge, fair: leg.fair ?? leg.implied, conf: m.conf,
+        stage,
+        valueScore: valueScore(leg.model, leg.fair ?? leg.implied),
+        stake: recommendedStakeStaged(leg.model, leg.dec, bankrollBalance, stage, scaler),
+      };
+    });
+
+  // Sort by value_score descending (edge × probability — penalises longshots)
+  return [...out, ...mt]
+    .filter((p) => p.ev != null)
+    .sort((a, b) => b.valueScore - a.valueScore);
 }
 
 export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFmt, placed, onAdd, go }) {
@@ -55,7 +93,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
         <div className="screen-head">
           <div><div className="eyebrow">Command Center</div><h1>Dashboard</h1></div>
         </div>
-        <div className="empty">No value plays found yet.</div>
+        <div className="empty">No strong value right now — no selection clears the model ≥ 33% / odds ≤ 4.0 / positive-edge filter.</div>
       </div>
     );
   }
@@ -99,6 +137,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
                 <label>RECOMMENDED STAKE</label>
                 <b className="mono">{fmtMoney(hero.stake, currency)}<span className="stake-pct"> ({balance > 0 ? Math.round(hero.stake / balance * 100) : 0}% of bankroll)</span></b>
                 <span className="ret">to return {fmtMoney(hero.stake * hero.dec, currency)}</span>
+                <span className="stage-tag">{stageLabel(hero.stage)}</span>
               </div>
               <button className={`btn primary ${placed.has(hero.key) ? 'is-done' : ''}`}
                 disabled={placed.has(hero.key)} onClick={() => onAdd(hero)}>
@@ -123,8 +162,11 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
         {/* value leaderboard */}
         <div className="card value-board">
           <div className="card-head"><span>Value Leaderboard</span>
-            <span className="head-note">ranked by expected value</span></div>
+            <span className="head-note">ranked by edge × probability</span></div>
           <div className="vb-list">
+            {rest.length === 0 && (
+              <div className="empty-note">No further value picks pass the filter right now.</div>
+            )}
             {rest.map((p, i) => (
               <div className="vb-row" key={p.key}>
                 <span className="vb-rank mono">{String(i + 2).padStart(2, '0')}</span>
@@ -132,6 +174,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
                 <div className="vb-main">
                   <div className="vb-name">{p.name}<span className={`vb-type t-${p.type.toLowerCase()}`}>{p.type}</span></div>
                   <div className="vb-market">{p.market}</div>
+                  <div className="vb-stage-tag">{stageLabel(p.stage)}</div>
                 </div>
                 <div className="vb-odds mono">{formatOdds(p.dec, oddsFmt)}</div>
                 <EdgeBadge value={p.ev} />

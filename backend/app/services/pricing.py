@@ -15,12 +15,16 @@ def price_match(
     ratings,
     market_odds: dict,
     str_by_code: dict[str, float],
+    stage: str = "group",
 ) -> dict:
     """Price a single match fixture into a snapshot payload dict.
 
     Lambdas come from blended market-anchored strengths via
     lambdas_from_strength, NOT from ratings.lambdas().  rho is taken
     from the fitted ratings model (or -0.05 if no ratings).
+
+    ``stage`` is "group" or "knockout" — used for stage-aware staking and
+    surfaced in the payload so the frontend can display the right staking label.
     """
     sH = str_by_code[home]
     sA = str_by_code[away]
@@ -33,6 +37,8 @@ def price_match(
     for kind, fairp in zip(("home", "draw", "away"), fair):
         dec = market_odds[kind]
         model = p[kind]
+        vs = B.value_score(model, fairp)
+        iv = B.is_value_pick(model, dec, fairp)
         legs.append({
             "kind": kind,
             "dec": dec,
@@ -42,13 +48,21 @@ def price_match(
             "edge": model - fairp,
             "ev": B.ev(model, dec),
             "kelly": B.kelly_full(model, dec),
-            "verdict": B.verdict(model - fairp),
+            "verdict": B.verdict(model - fairp, model),
+            "value_score": vs,
+            "is_value": iv,
         })
-    best = max(legs, key=lambda x: x["ev"])
+    # Best = highest value_score among legs that pass the value-pick filter.
+    # Falls back to None if no leg passes (no recommended pick for this match).
+    value_legs = [leg for leg in legs if leg["is_value"]]
+    best: dict | None = (
+        max(value_legs, key=lambda x: x["value_score"]) if value_legs else None
+    )
     return {
         "id": match_id,
         "home": home,
         "away": away,
+        "stage": stage,
         "markets": mk,
         "legs": legs,
         "best": best,

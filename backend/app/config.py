@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     odds_api_base: str = "https://api.the-odds-api.com/v4"
     api_football_base: str = "https://v3.football.api-sports.io"
     model_sims: int = 50000
-    model_decay_halflife_days: int = 540
+    model_decay_halflife_days: int = 300
     wiki_squads_enabled: bool = True
 
     @property

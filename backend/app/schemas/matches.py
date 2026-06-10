@@ -13,6 +13,8 @@ class MatchLeg(BaseModel):
     ev: float
     kelly: float
     verdict: str
+    value_score: float = 0.0
+    is_value: bool = False
 
 
 class MatchSummary(BaseModel):
@@ -27,6 +29,7 @@ class MatchSummary(BaseModel):
     venue: str
     xg: list[float]
     conf: int
+    stage: str = "group"
     best: MatchLeg | None = None
     kickoff: str | None = None
 

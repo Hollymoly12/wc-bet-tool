@@ -34,7 +34,86 @@ def test_price_match_has_markets_and_ev():
         str_by_code=s,
     )
     assert "1x2" in snap["markets"]
-    assert "best" in snap and "ev" in snap["best"]
+    # best may be None if no leg passes value filters, but key must exist
+    assert "best" in snap
+    if snap["best"] is not None:
+        assert "ev" in snap["best"]
+
+
+def test_price_match_legs_have_value_fields():
+    """Each leg should carry value_score and is_value flag."""
+    r = _ratings()
+    s = _str_by_code(r)
+    snap = price_match(
+        "m1", "ESP", "CRO", r,
+        market_odds={"home": 1.62, "draw": 4.0, "away": 5.8},
+        str_by_code=s,
+    )
+    for leg in snap["legs"]:
+        assert "value_score" in leg
+        assert "is_value" in leg
+
+
+def test_price_match_has_stage():
+    """price_match should include stage in the returned dict."""
+    r = _ratings()
+    s = _str_by_code(r)
+    snap = price_match(
+        "m1", "ESP", "CRO", r,
+        market_odds={"home": 1.62, "draw": 4.0, "away": 5.8},
+        str_by_code=s,
+        stage="group",
+    )
+    assert snap["stage"] == "group"
+
+    snap_ko = price_match(
+        "ko1", "ESP", "BRA", r,
+        market_odds={"home": 1.90, "draw": 3.4, "away": 4.0},
+        str_by_code=s,
+        stage="knockout",
+    )
+    assert snap_ko["stage"] == "knockout"
+
+
+def test_price_match_best_uses_value_score():
+    """best leg must be highest value_score among legs passing the value-pick filter."""
+    r = _ratings()
+    s = _str_by_code(r)
+    # ESP heavy favorite with tight home odds (home passes filter)
+    snap = price_match(
+        "test_vs", "ESP", "QAT", r,
+        market_odds={"home": 1.30, "draw": 4.5, "away": 9.0},
+        str_by_code=s,
+    )
+    value_legs = [leg for leg in snap["legs"] if leg["is_value"]]
+    if snap["best"] is not None:
+        # best must be the highest value_score among value legs
+        best_vs = snap["best"]["value_score"]
+        assert all(best_vs >= leg["value_score"] for leg in value_legs), (
+            "best is not the highest value_score value leg"
+        )
+
+
+def test_price_match_longshot_not_best():
+    """A longshot leg (dec >= 4.0 or p < 0.33) must NOT be selected as best."""
+    r = _ratings()
+    s = _str_by_code(r)
+    snap = price_match(
+        "test_ls", "ESP", "QAT", r,
+        # home at 1.30 (tight favourite), away at 9.0 (longshot)
+        market_odds={"home": 1.30, "draw": 4.5, "away": 9.0},
+        str_by_code=s,
+    )
+    if snap["best"] is not None:
+        assert snap["best"]["kind"] != "away", (
+            f"Longshot 'away' at dec=9.0 should never be best; got {snap['best']}"
+        )
+        assert snap["best"]["dec"] <= 4.0, (
+            f"best dec={snap['best']['dec']} exceeds max_dec=4.0 (longshot selected)"
+        )
+        assert snap["best"]["model"] >= 0.33, (
+            f"best model prob {snap['best']['model']:.3f} < 0.33 (low-prob selected)"
+        )
 
 
 def test_price_match_stronger_home_favoured():

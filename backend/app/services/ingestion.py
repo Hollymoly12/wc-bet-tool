@@ -430,6 +430,13 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
                 "away": match_odds_raw.get("away", 2.9),
             }
             match_id = body  # "{HOME}_{AWAY}"
+            # Determine stage: group if both teams are in the same group
+            match_stage = (
+                "group"
+                if group_of.get(home_code) == group_of.get(away_code)
+                   and group_of.get(home_code) is not None
+                else "knockout"
+            )
             snap_payload = price_match(
                 match_id,
                 home_code,
@@ -437,6 +444,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
                 ratings,
                 market_odds=market_odds_input,
                 str_by_code=str_by_code,
+                stage=match_stage,
             )
             # Attach kickoff from commence_time if available
             ko = kickoff_by_market.get(mkey)
@@ -459,6 +467,13 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
             }
             if fixture.home not in str_by_code or fixture.away not in str_by_code:
                 continue
+            # Determine stage: group if both teams are in the same group
+            match_stage = (
+                "group"
+                if group_of.get(fixture.home) == group_of.get(fixture.away)
+                   and group_of.get(fixture.home) is not None
+                else "knockout"
+            )
             snap_payload = price_match(
                 fixture.id,
                 fixture.home,
@@ -466,6 +481,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
                 ratings,
                 market_odds=market_odds_input,
                 str_by_code=str_by_code,
+                stage=match_stage,
             )
             # Seed mode has no real commence_time; kickoff is None
             snap_payload["kickoff"] = None

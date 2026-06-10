@@ -254,12 +254,19 @@ export const RISK = {
   aggressive:   { label: 'Aggressive',   mult: 1.00, cap: 0.12 },
 };
 
+// Stage-aware staking params (mirrors backend STAGE_STAKING)
+export const STAGE_STAKING = {
+  group:    { mult: 0.25, cap: 0.03, label: 'Group · ¼-Kelly' },
+  knockout: { mult: 0.50, cap: 0.07, label: 'Knockout · ½-Kelly' },
+};
+
 function kellyFull(p, dec) {
   const b = dec - 1;
   if (b <= 0) return 0;
   return Math.max(0, (b * p - (1 - p)) / b);
 }
 
+// Legacy risk-profile stake (kept for backward compat; app now prefers staged)
 export function recommendedStake(p, dec, bankroll, riskKey = 'balanced') {
   const r = RISK[riskKey] || RISK.balanced;
   const rawF = kellyFull(p, dec) * r.mult;
@@ -268,6 +275,35 @@ export function recommendedStake(p, dec, bankroll, riskKey = 'balanced') {
   // Ensure a genuine positive-edge bet doesn't round to €0
   if (stake === 0 && rawF > 0 && bankroll * f >= 0.5) return 1;
   return stake;
+}
+
+/**
+ * Stage-aware staking: group = ¼-Kelly capped 3%; knockout = ½-Kelly capped 7%.
+ * An optional riskScaler (Conservative=0.7 / Balanced=1.0 / Aggressive=1.3)
+ * scales the output but is always clamped to the stage cap.
+ */
+export function recommendedStakeStaged(p, dec, bankroll, stage = 'group', riskScaler = 1.0) {
+  const params = STAGE_STAKING[stage] || STAGE_STAKING.group;
+  const rawF = kellyFull(p, dec) * params.mult;
+  const f = Math.min(rawF * riskScaler, params.cap);
+  const stake = Math.round(bankroll * f);
+  if (stake === 0 && rawF > 0 && bankroll * f >= 0.5) return 1;
+  return stake;
+}
+
+/** Return the STAGE_STAKING label for display, e.g. "Group · ¼-Kelly". */
+export function stageLabel(stage = 'group') {
+  return (STAGE_STAKING[stage] || STAGE_STAKING.group).label;
+}
+
+/** value_score = edge × probability (mirrors backend value_score). */
+export function valueScore(model, fair) {
+  return (model - fair) * model;
+}
+
+/** Returns true when a selection passes the balanced-value filter. */
+export function isValuePick(model, dec, edge) {
+  return model >= 0.33 && dec <= 4.0 && edge > 0;
 }
 
 export function formatOdds(dec, fmt = 'decimal') {
