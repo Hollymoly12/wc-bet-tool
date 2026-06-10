@@ -5,6 +5,7 @@ Adapters are pure/stateless: no DB writes here.
 """
 from __future__ import annotations
 import logging
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -52,10 +53,17 @@ class ApiFootballAdapter:
     # Internal HTTP helper (easy to monkeypatch in tests)
     # ------------------------------------------------------------------
     def _get(self, url: str, params: dict) -> dict:
-        """GET url with API-Football headers, return parsed JSON dict."""
+        """GET url with API-Football headers, return parsed JSON dict.
+
+        On HTTP 429 (rate limit) sleeps 20 s and retries once.
+        """
         headers = {"x-apisports-key": self._key}
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.get(url, params=params, headers=headers)
+            if resp.status_code == 429:
+                logger.warning("ApiFootballAdapter: 429 rate-limit — sleeping 20 s then retrying")
+                time.sleep(20)
+                resp = client.get(url, params=params, headers=headers)
             resp.raise_for_status()
             return resp.json()
 
@@ -130,7 +138,14 @@ class ApiFootballAdapter:
         seen: set[tuple[str, str, str]] = set()
         out: list[ResultDTO] = []
 
+        first = True
         for league_id, season in CALIBRATION_COMPETITIONS:
+            # Free tier allows ~10 req/min; sleep between competition calls to
+            # stay within the limit.  Skip the sleep before the very first call.
+            if not first:
+                time.sleep(7)
+            first = False
+
             url = f"{self._base}/fixtures"
             params: dict = {"league": league_id, "season": season, "status": "FT"}
 

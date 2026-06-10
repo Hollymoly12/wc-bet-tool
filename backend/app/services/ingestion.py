@@ -5,10 +5,13 @@ run_refresh(db, sims):
   2. Derive universe (real mode if 12×4 groups from h2h odds, else seed mode)
   3. Upsert teams (48) + players + matches + match_results + odds_snapshots
   4. Fit Dixon-Coles ratings on historical results
-  5. Price all fixtures (match ModelSnapshot per fixture)
-  6. Price outright (one ModelSnapshot with all rows)
-  7. Run tournament simulation (one TournamentSnapshot)
-  8. Refresh team_news
+  5. Compute blended market-anchored str_rating per team
+  6. Overwrite ratings.teams[c].str_rating + Team.str_rating with blended values
+  7. Run tournament simulation (now with anchored strengths)
+  8. Price all fixtures (match ModelSnapshot per fixture) using str_by_code
+  9. Price outright from sim champion probs
+ 10. Run tournament simulation (one TournamentSnapshot)
+ 11. Refresh team_news
 """
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ from app.db.models import (
 from app.models.ratings import RatingsModel, TeamRatings, fit_ratings
 from app.providers.factory import get_football_provider, get_news_provider, get_odds_provider
 from app.seed import seed_data
+from app.services.market_anchor import blended_strength
 from app.services.news import refresh_news
 from app.services.pricing import price_match, price_outright
 from app.services.team_universe import derive_universe
@@ -207,7 +211,7 @@ def _ensure_all_in_ratings(ratings: RatingsModel, codes: list[str]) -> RatingsMo
 # ---------------------------------------------------------------------------
 
 def run_refresh(db: Session, sims: int = 50000) -> None:
-    """Full refresh pipeline: fetch → upsert → fit → price → simulate → persist snapshots."""
+    """Full refresh pipeline: fetch → upsert → fit → anchor → price → simulate → persist."""
     now = datetime.now(timezone.utc)
 
     # --- 1. Fetch from providers ---
@@ -288,81 +292,9 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
     # Ensure teams with no history get neutral ratings (no crash in real mode)
     ratings = _ensure_all_in_ratings(ratings, universe_codes)
 
-    # --- 9. Update team ratings in DB ---
-    for code in universe_codes:
-        if code in ratings.teams:
-            tr = ratings.teams[code]
-            row = db.get(Team, code)
-            if row:
-                row.attack = tr.attack
-                row.defense = tr.defense
-                row.elo = tr.elo
-                row.str_rating = tr.str_rating
-    db.flush()
-
-    # --- 10. Price each match fixture ---
-    if real_mode:
-        # In real mode: iterate h2h market keys present in odds_grouped
-        h2h_keys = [k for k in odds_grouped if k.startswith("h2h:")]
-        for mkey in h2h_keys:
-            # market_key format: "h2h:{HOME}_{AWAY}"
-            body = mkey[4:]
-            parts = body.split("_", 1)
-            if len(parts) != 2:
-                continue
-            home_code, away_code = parts
-            if home_code not in ratings.teams or away_code not in ratings.teams:
-                continue
-            match_odds_raw = odds_grouped.get(mkey, {})
-            market_odds_input = {
-                "home": match_odds_raw.get("home", 2.5),
-                "draw": match_odds_raw.get("draw", 3.2),
-                "away": match_odds_raw.get("away", 2.9),
-            }
-            match_id = body  # "{HOME}_{AWAY}"
-            snap_payload = price_match(
-                match_id,
-                home_code,
-                away_code,
-                ratings,
-                market_odds=market_odds_input,
-            )
-            db.add(ModelSnapshot(
-                kind="match",
-                ref=match_id,
-                payload=snap_payload,
-                created_at=now,
-            ))
-    else:
-        # Seed mode: use seed fixture IDs (m1..m8)
-        for fixture in fixtures:
-            market_key = f"h2h:{fixture.id}"
-            match_odds = odds_grouped.get(market_key, {})
-            market_odds_input = {
-                "home": match_odds.get("home", 2.5),
-                "draw": match_odds.get("draw", 3.2),
-                "away": match_odds.get("away", 2.9),
-            }
-            if fixture.home not in ratings.teams or fixture.away not in ratings.teams:
-                continue
-            snap_payload = price_match(
-                fixture.id,
-                fixture.home,
-                fixture.away,
-                ratings,
-                market_odds=market_odds_input,
-            )
-            db.add(ModelSnapshot(
-                kind="match",
-                ref=fixture.id,
-                payload=snap_payload,
-                created_at=now,
-            ))
-
-    # --- 11. Price outright ---
+    # --- 9. Build outright dec_by_code (needed for market anchor) ---
     outright_odds_grouped = odds_grouped.get("outright", {})
     if real_mode:
-        # Real mode: use averaged book outrights; fall back to seed dec if missing
         seed_dec_by_code = {t["code"]: t["dec"] for t in seed_data.TEAMS}
         dec_by_code: dict[str, float] = {}
         for code in universe_codes:
@@ -380,8 +312,120 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
         else:
             dec_by_code = {t["code"]: t["dec"] for t in seed_data.TEAMS}
 
-    valid_outright = {c: d for c, d in dec_by_code.items() if c in ratings.teams}
-    outright_rows = price_outright(ratings, valid_outright)
+    valid_dec = {c: d for c, d in dec_by_code.items() if c in ratings.teams}
+
+    # --- 10. Compute blended market-anchored strengths ---
+    # model_net: Dixon-Coles net rating per code
+    model_net = {
+        c: ratings.teams[c].attack - ratings.teams[c].defense
+        for c in universe_codes
+        if c in ratings.teams
+    }
+
+    # n_matches: count how many raw_results rows involve each code
+    n_matches: dict[str, int] = {c: 0 for c in universe_codes}
+    for row in raw_results:
+        if row["home"] in n_matches:
+            n_matches[row["home"]] += 1
+        if row["away"] in n_matches:
+            n_matches[row["away"]] += 1
+
+    # Use valid_dec as market anchor; for codes not in valid_dec, use a neutral long-shot
+    market_dec_for_blend: dict[str, float] = {}
+    for c in universe_codes:
+        if c in valid_dec:
+            market_dec_for_blend[c] = valid_dec[c]
+        elif c in dec_by_code:
+            market_dec_for_blend[c] = dec_by_code[c]
+        else:
+            market_dec_for_blend[c] = 201.0
+
+    str_by_code = blended_strength(model_net, market_dec_for_blend, n_matches, universe_codes)
+
+    # --- 11. Overwrite ratings.teams[c].str_rating with blended strength ---
+    for c in universe_codes:
+        if c in ratings.teams:
+            ratings.teams[c].str_rating = str_by_code[c]
+
+    # --- 12. Update team ratings in DB (str_rating now anchored) ---
+    for code in universe_codes:
+        if code in ratings.teams:
+            tr = ratings.teams[code]
+            row = db.get(Team, code)
+            if row:
+                row.attack = tr.attack
+                row.defense = tr.defense
+                row.elo = tr.elo
+                row.str_rating = str_by_code.get(code, tr.str_rating)
+    db.flush()
+
+    # --- 13. Run tournament simulation with anchored strengths ---
+    sim_result = run_tournament(ratings, group_of, sims=sims)
+
+    # --- 14. Price each match fixture using anchored str_by_code ---
+    if real_mode:
+        # In real mode: iterate h2h market keys present in odds_grouped
+        h2h_keys = [k for k in odds_grouped if k.startswith("h2h:")]
+        for mkey in h2h_keys:
+            # market_key format: "h2h:{HOME}_{AWAY}"
+            body = mkey[4:]
+            parts = body.split("_", 1)
+            if len(parts) != 2:
+                continue
+            home_code, away_code = parts
+            if home_code not in str_by_code or away_code not in str_by_code:
+                continue
+            match_odds_raw = odds_grouped.get(mkey, {})
+            market_odds_input = {
+                "home": match_odds_raw.get("home", 2.5),
+                "draw": match_odds_raw.get("draw", 3.2),
+                "away": match_odds_raw.get("away", 2.9),
+            }
+            match_id = body  # "{HOME}_{AWAY}"
+            snap_payload = price_match(
+                match_id,
+                home_code,
+                away_code,
+                ratings,
+                market_odds=market_odds_input,
+                str_by_code=str_by_code,
+            )
+            db.add(ModelSnapshot(
+                kind="match",
+                ref=match_id,
+                payload=snap_payload,
+                created_at=now,
+            ))
+    else:
+        # Seed mode: use seed fixture IDs (m1..m8)
+        for fixture in fixtures:
+            market_key = f"h2h:{fixture.id}"
+            match_odds = odds_grouped.get(market_key, {})
+            market_odds_input = {
+                "home": match_odds.get("home", 2.5),
+                "draw": match_odds.get("draw", 3.2),
+                "away": match_odds.get("away", 2.9),
+            }
+            if fixture.home not in str_by_code or fixture.away not in str_by_code:
+                continue
+            snap_payload = price_match(
+                fixture.id,
+                fixture.home,
+                fixture.away,
+                ratings,
+                market_odds=market_odds_input,
+                str_by_code=str_by_code,
+            )
+            db.add(ModelSnapshot(
+                kind="match",
+                ref=fixture.id,
+                payload=snap_payload,
+                created_at=now,
+            ))
+
+    # --- 15. Price outright from sim champion probs ---
+    valid_outright = {c: d for c, d in valid_dec.items() if c in ratings.teams}
+    outright_rows = price_outright(sim_result.champion, valid_outright, str_by_code)
     db.add(ModelSnapshot(
         kind="outright",
         ref="all",
@@ -389,8 +433,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
         created_at=now,
     ))
 
-    # --- 12. Run tournament simulation ---
-    sim_result = run_tournament(ratings, group_of, sims=sims)
+    # --- 16. Persist tournament snapshot ---
     db.add(TournamentSnapshot(
         payload={
             "team_probs": sim_result.team_probs,
@@ -400,7 +443,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
         created_at=now,
     ))
 
-    # --- 13. Refresh team news ---
+    # --- 17. Refresh team news ---
     db.query(TeamNews).filter(TeamNews.source == "seed").delete()
     db.flush()
     refresh_news(db, news_items)
