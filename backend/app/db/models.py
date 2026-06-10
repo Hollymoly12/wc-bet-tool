@@ -3,11 +3,16 @@ from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
+# NOTE: free-text columns that hold real provider data (news URLs/titles, venue
+# names, club names) use Text or generous String lengths. SQLite ignores VARCHAR
+# limits but Postgres enforces them, so tight limits caused truncation errors on
+# real data. Keep these generous.
+
 
 class Team(Base):
     __tablename__ = "teams"
     code: Mapped[str] = mapped_column(String(4), primary_key=True)
-    name: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(96))
     group: Mapped[str] = mapped_column(String(2))
     colors: Mapped[list] = mapped_column(JSON, default=list)
     elo: Mapped[float] = mapped_column(Float, default=1500.0)
@@ -22,9 +27,9 @@ class Player(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(4), index=True)
     number: Mapped[int] = mapped_column(Integer)
-    name: Mapped[str] = mapped_column(String(64))
-    pos: Mapped[str] = mapped_column(String(4))
-    club: Mapped[str] = mapped_column(String(48), default="")
+    name: Mapped[str] = mapped_column(String(128))
+    pos: Mapped[str] = mapped_column(String(8))
+    club: Mapped[str] = mapped_column(String(128), default="")
     tier: Mapped[float] = mapped_column(Float, default=1.0)
     starter: Mapped[bool] = mapped_column(default=False)
     rates: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -32,13 +37,13 @@ class Player(Base):
 
 class Match(Base):
     __tablename__ = "matches"
-    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    id: Mapped[str] = mapped_column(String(24), primary_key=True)
     home: Mapped[str] = mapped_column(String(4))
     away: Mapped[str] = mapped_column(String(4))
-    group: Mapped[str] = mapped_column(String(2), default="")
+    group: Mapped[str] = mapped_column(String(32), default="")
     stage: Mapped[str] = mapped_column(String(24), default="group")
     kickoff: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    venue: Mapped[str] = mapped_column(String(96), default="")
+    venue: Mapped[str] = mapped_column(Text, default="")
 
 
 class MatchResult(Base):
@@ -49,16 +54,16 @@ class MatchResult(Base):
     away: Mapped[str] = mapped_column(String(4))
     home_goals: Mapped[int] = mapped_column(Integer)
     away_goals: Mapped[int] = mapped_column(Integer)
-    competition: Mapped[str] = mapped_column(String(48), default="")
+    competition: Mapped[str] = mapped_column(String(96), default="")
     weight: Mapped[float] = mapped_column(Float, default=1.0)
 
 
 class OddsSnapshot(Base):
     __tablename__ = "odds_snapshots"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    market_key: Mapped[str] = mapped_column(String(64), index=True)
-    book: Mapped[str] = mapped_column(String(48))
-    selection: Mapped[str] = mapped_column(String(64))
+    market_key: Mapped[str] = mapped_column(String(96), index=True)
+    book: Mapped[str] = mapped_column(String(96))
+    selection: Mapped[str] = mapped_column(String(96))
     dec: Mapped[float] = mapped_column(Float)
     captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -67,7 +72,7 @@ class ModelSnapshot(Base):
     __tablename__ = "model_snapshots"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     kind: Mapped[str] = mapped_column(String(24), index=True)  # outright|match|group|player
-    ref: Mapped[str] = mapped_column(String(48), index=True)   # team code or match id
+    ref: Mapped[str] = mapped_column(String(96), index=True)   # team code or match id
     payload: Mapped[dict] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
@@ -85,18 +90,18 @@ class TeamNews(Base):
     code: Mapped[str] = mapped_column(String(4), index=True)
     tag: Mapped[str] = mapped_column(String(12))
     text: Mapped[str] = mapped_column(Text)
-    source: Mapped[str] = mapped_column(String(48), default="")
-    url: Mapped[str] = mapped_column(String(256), default="")
+    source: Mapped[str] = mapped_column(String(128), default="")
+    url: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Bet(Base):
     __tablename__ = "bets"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    key: Mapped[str] = mapped_column(String(96))
-    pick: Mapped[str] = mapped_column(String(128))
+    key: Mapped[str] = mapped_column(String(128))
+    pick: Mapped[str] = mapped_column(String(255))
     team: Mapped[str] = mapped_column(String(4), default="")
-    market: Mapped[str] = mapped_column(String(48), default="")
+    market: Mapped[str] = mapped_column(String(96), default="")
     stake: Mapped[float] = mapped_column(Float)
     dec: Mapped[float] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(8), default="open")  # open|won|lost|void
@@ -117,5 +122,5 @@ class ProviderCall(Base):
     __tablename__ = "provider_calls"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String(32))
-    endpoint: Mapped[str] = mapped_column(String(96))
+    endpoint: Mapped[str] = mapped_column(String(128))
     called_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
