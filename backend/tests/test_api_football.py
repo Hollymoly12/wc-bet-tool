@@ -154,17 +154,80 @@ def test_fetch_fixtures_unknown_team_skipped(football_adapter, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Results adapter tests
+# Results adapter tests — multi-competition iteration
 # ---------------------------------------------------------------------------
 
+# A successful response for the first competition (league=1, season=2022)
+SAMPLE_RESULTS_FIRST_COMP = {
+    "results": 1,
+    "errors": [],
+    "response": [
+        {
+            "fixture": {
+                "id": 100001,
+                "date": "2022-11-20T17:00:00+00:00",
+                "status": {"short": "FT"},
+                "venue": {"name": "Al Bayt Stadium"},
+            },
+            "league": {
+                "id": 1,
+                "name": "FIFA World Cup",
+                "season": 2022,
+                "round": "Group Stage - 1",
+            },
+            "teams": {
+                "home": {"id": 9, "name": "Spain"},
+                "away": {"id": 3, "name": "Croatia"},
+            },
+            "goals": {"home": 2, "away": 1},
+        }
+    ],
+}
+
+# An errored response (simulates inaccessible competition)
+SAMPLE_RESULTS_ERRORED = {
+    "errors": {"plan": "Access restricted"},
+    "results": 0,
+    "response": [],
+}
+
+# Empty response (results=0)
+SAMPLE_RESULTS_EMPTY = {
+    "errors": [],
+    "results": 0,
+    "response": [],
+}
+
+
+def _make_multi_comp_get(first_response, other_response):
+    """Return a _get side-effect that returns first_response for the first call
+    and other_response for all subsequent calls."""
+    call_count = {"n": 0}
+
+    def fake_get(url, params):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return first_response
+        return other_response
+
+    return fake_get
+
+
 def test_fetch_results_count(football_adapter, monkeypatch):
-    monkeypatch.setattr(football_adapter, "_get", lambda url, params: SAMPLE_RESULTS_RESPONSE)
+    """First comp returns 1 result; rest return errors → total 1 result."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        _make_multi_comp_get(SAMPLE_RESULTS_FIRST_COMP, SAMPLE_RESULTS_ERRORED),
+    )
     results = football_adapter.fetch_results()
     assert len(results) == 1
 
 
 def test_fetch_results_goals(football_adapter, monkeypatch):
-    monkeypatch.setattr(football_adapter, "_get", lambda url, params: SAMPLE_RESULTS_RESPONSE)
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        _make_multi_comp_get(SAMPLE_RESULTS_FIRST_COMP, SAMPLE_RESULTS_ERRORED),
+    )
     r = football_adapter.fetch_results()[0]
     assert r.home == "ESP"
     assert r.away == "CRO"
@@ -173,16 +236,54 @@ def test_fetch_results_goals(football_adapter, monkeypatch):
 
 
 def test_fetch_results_competition(football_adapter, monkeypatch):
-    monkeypatch.setattr(football_adapter, "_get", lambda url, params: SAMPLE_RESULTS_RESPONSE)
+    """competition field should be the league name from the response."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        _make_multi_comp_get(SAMPLE_RESULTS_FIRST_COMP, SAMPLE_RESULTS_ERRORED),
+    )
     r = football_adapter.fetch_results()[0]
-    assert r.competition == "WC2026"
+    assert r.competition == "FIFA World Cup"
 
 
 def test_fetch_results_days_ago_is_float(football_adapter, monkeypatch):
-    """days_ago must be a float (positive for past matches, may be negative for future dates in tests)."""
-    monkeypatch.setattr(football_adapter, "_get", lambda url, params: SAMPLE_RESULTS_RESPONSE)
+    """days_ago must be a float."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        _make_multi_comp_get(SAMPLE_RESULTS_FIRST_COMP, SAMPLE_RESULTS_ERRORED),
+    )
     r = football_adapter.fetch_results()[0]
     assert isinstance(r.days_ago, float)
+
+
+def test_fetch_results_errored_comps_skipped(football_adapter, monkeypatch):
+    """All comps errored → empty result list, no crash."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        lambda url, params: SAMPLE_RESULTS_ERRORED,
+    )
+    results = football_adapter.fetch_results()
+    assert results == []
+
+
+def test_fetch_results_empty_comps_skipped(football_adapter, monkeypatch):
+    """All comps return results=0 → empty result list."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        lambda url, params: SAMPLE_RESULTS_EMPTY,
+    )
+    results = football_adapter.fetch_results()
+    assert results == []
+
+
+def test_fetch_results_deduplication(football_adapter, monkeypatch):
+    """Same match appearing across two competitions is deduplicated."""
+    monkeypatch.setattr(
+        football_adapter, "_get",
+        _make_multi_comp_get(SAMPLE_RESULTS_FIRST_COMP, SAMPLE_RESULTS_FIRST_COMP),
+    )
+    results = football_adapter.fetch_results()
+    # Even though 2 comps return the same match, we should get only 1 result
+    assert len(results) == 1
 
 
 # ---------------------------------------------------------------------------
