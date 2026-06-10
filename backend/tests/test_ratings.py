@@ -1,5 +1,4 @@
 # backend/tests/test_ratings.py
-import math
 from app.models.ratings import fit_ratings, TeamRatings
 
 

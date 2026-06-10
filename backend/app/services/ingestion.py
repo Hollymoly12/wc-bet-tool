@@ -145,7 +145,6 @@ def _persist_results(db: Session, results) -> list[dict]:
 
 def _persist_odds(db: Session, lines) -> dict[str, dict]:
     """Persist OddsSnapshot rows and return grouped by market_key."""
-    now = datetime.now(timezone.utc)
     grouped: dict[str, dict] = {}
     for line in lines:
         db.add(OddsSnapshot(

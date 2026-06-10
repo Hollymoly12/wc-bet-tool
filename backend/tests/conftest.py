@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.base import Base
 import app.db.models  # noqa: F401  (register tables)

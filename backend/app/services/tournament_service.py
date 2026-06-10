@@ -2,7 +2,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from app.models.tournament import simulate, GroupTeam, SimResult, _pair_probs, _BRACKET_SLOTS
-from app.seed import seed_data
 
 
 ROUND_NAMES = ["Round of 32", "Round of 16", "Quarter-finals", "Semi-finals", "Final"]

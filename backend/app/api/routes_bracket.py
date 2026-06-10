@@ -2,7 +2,6 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.api.deps import DbDep
 from app.db.models import Team
-from app.seed import seed_data
 from app.services.tournament_service import projected_bracket
 
 router = APIRouter()

@@ -1,6 +1,5 @@
 """Seed football provider — builds DTOs from seed_data (no API key needed)."""
 from __future__ import annotations
-from datetime import datetime, timezone
 from app.providers.base import FixtureDTO, ResultDTO
 from app.seed import seed_data
 

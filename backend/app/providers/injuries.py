@@ -76,7 +76,6 @@ class InjuriesNewsProvider:
             player_info = item.get("player", {})
             player_name = player_info.get("name", "Unknown player")
 
-            fixture_info = item.get("fixture", {})
             # reason / type from the injury fields
             reason = item.get("reason") or item.get("type") or "Unknown reason"
 

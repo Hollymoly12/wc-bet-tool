@@ -2,7 +2,6 @@ from __future__ import annotations
 from fastapi import APIRouter
 from app.api.deps import DbDep, latest_tournament_snapshot
 from app.db.models import Team
-from app.seed import seed_data
 from app.services.pricing import market_from_prob
 
 router = APIRouter()

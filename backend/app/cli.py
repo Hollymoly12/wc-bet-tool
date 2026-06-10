@@ -6,7 +6,6 @@ Usage:
 """
 from __future__ import annotations
 import argparse
-import sys
 
 
 def cmd_refresh(args) -> None:
