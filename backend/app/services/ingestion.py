@@ -32,7 +32,9 @@ from app.db.models import (
     TournamentSnapshot,
 )
 from app.models.ratings import RatingsModel, TeamRatings, fit_ratings
+from app.config import get_settings
 from app.providers.factory import get_football_provider, get_news_provider, get_odds_provider
+from app.providers.wiki_squads import WikiSquadsProvider
 from app.seed import seed_data
 from app.services.market_anchor import blended_strength
 from app.services.news import refresh_news
@@ -214,6 +216,44 @@ def _ensure_all_in_ratings(ratings: RatingsModel, codes: list[str]) -> RatingsMo
 
 
 # ---------------------------------------------------------------------------
+# Squad resolver (Wikipedia > seed fallback)
+# ---------------------------------------------------------------------------
+
+def _resolve_squads() -> dict[str, list]:
+    """Return a merged squads dict.
+
+    If ``wiki_squads_enabled`` is True, attempts to fetch live squads from
+    Wikipedia.  Any teams Wikipedia returns override the corresponding seed
+    entry; teams Wikipedia missed keep their seed squad.  Falls back to seed
+    entirely on failure or if the provider returns an empty dict.
+    """
+    base: dict[str, list] = dict(seed_data.SQUADS)  # seed as base
+
+    if not get_settings().wiki_squads_enabled:
+        return base
+
+    try:
+        wiki = WikiSquadsProvider().fetch_squads()
+    except Exception as exc:
+        logger.warning("_resolve_squads: WikiSquadsProvider raised %s — using seed", exc)
+        return base
+
+    if not wiki:
+        logger.info("_resolve_squads: Wikipedia returned empty dict — using seed")
+        return base
+
+    # Merge: wiki overrides seed per team
+    merged = {**base, **wiki}
+    logger.info(
+        "_resolve_squads: merged %d wiki teams over %d seed teams → %d total",
+        len(wiki),
+        len(base),
+        len(merged),
+    )
+    return merged
+
+
+# ---------------------------------------------------------------------------
 # Main refresh entrypoint
 # ---------------------------------------------------------------------------
 
@@ -228,7 +268,7 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
 
     fixtures = fp.fetch_fixtures()
     results = fp.fetch_results()
-    squads = fp.fetch_squads()
+    squads = _resolve_squads()
     odds_lines = op.fetch_odds()
     news_items = np_.fetch_news()
 

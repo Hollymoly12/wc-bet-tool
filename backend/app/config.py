@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     api_football_base: str = "https://v3.football.api-sports.io"
     model_sims: int = 50000
     model_decay_halflife_days: int = 540
+    wiki_squads_enabled: bool = True
 
     @property
     def has_odds_key(self) -> bool:
