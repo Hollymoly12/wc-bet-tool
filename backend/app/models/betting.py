@@ -94,53 +94,50 @@ def recommended_stake_staged(p: float, dec: float, bankroll: float, stage: str =
     return stake
 
 
-# Shared value-pick thresholds (used by is_value_pick AND verdict so the two
-# stay consistent — a leg that can't be a pick never reads "value"/"strong").
+# Shared value-pick thresholds. A pick must be PROFITABLE at the OFFERED odds
+# (positive EV, vig included — not just a positive edge vs the de-vigged "fair"
+# price), a likely-enough outcome, and not a longshot.
 MIN_VALUE_PROB = 0.33
 MAX_VALUE_DEC = 4.0
-# Minimum edge to count as value/strong. The 1X2 is market-anchored so edges are
-# small; require a real ≥1.5% edge (avoids flagging noise as value).
-EDGE_VALUE = 0.015
-EDGE_STRONG = 0.05
+EV_VALUE = 0.01    # min expected value (1%) at the offered odds to be a 'value' pick
+EV_STRONG = 0.08   # expected value for a 'strong' pick
 
 
-def value_score(p_model: float, fair: float) -> float:
-    """Balanced value score: edge × probability.
+def value_score(p_model: float, dec: float) -> float:
+    """Pick-ranking score = expected value at the OFFERED odds: p_model·dec − 1.
 
-    Rewards large edges on likely outcomes; penalises longshots with tiny edges.
+    This is what you actually win/lose per unit staked — so ranking by it picks
+    the most profitable bet, and a negative value can never be recommended.
     """
-    return (p_model - fair) * p_model
+    return p_model * dec - 1.0
 
 
 def is_value_pick(
     p_model: float,
     dec: float,
-    fair: float,
     min_prob: float = MIN_VALUE_PROB,
     max_dec: float = MAX_VALUE_DEC,
 ) -> bool:
-    """Return True only when all three filters pass:
-    - probability is high enough (≥ min_prob)
-    - odds are not longshot territory (≤ max_dec)
-    - model has genuine positive edge over fair price
+    """A leg is a recommendable pick only when it is PROFITABLE at the offered
+    odds (EV ≥ EV_VALUE), a likely-enough outcome (prob ≥ min_prob), and not a
+    longshot (odds ≤ max_dec)."""
+    ev = p_model * dec - 1.0
+    return p_model >= min_prob and dec <= max_dec and ev >= EV_VALUE
+
+
+def verdict(ev: float, p_model: float | None = None, dec: float | None = None) -> str:
+    """ev = expected value at the OFFERED odds (p_model·dec − 1).
+
+    A leg that can't be a pick (prob < MIN_VALUE_PROB or odds > MAX_VALUE_DEC)
+    never reads 'value'/'strong' — it caps at 'pass'. This keeps the chip
+    consistent with is_value_pick so a longshot/draw with a big EV artefact isn't
+    shown as a recommendation.
     """
-    return p_model >= min_prob and dec <= max_dec and (p_model - fair) >= EDGE_VALUE
-
-
-def verdict(edge: float, p_model: float | None = None, dec: float | None = None) -> str:
-    """edge = p_model - p_fair.
-
-    A leg that can't be a value pick — probability below MIN_VALUE_PROB or odds
-    above MAX_VALUE_DEC — never reads 'value'/'strong'; it caps at 'pass'. This
-    keeps the verdict consistent with is_value_pick, so a draw/longshot with a
-    large but artefactual edge isn't displayed as a recommendation.
-    Pass p_model=None to get the original edge-only thresholds (backward compat).
-    """
-    if edge >= EDGE_STRONG:
+    if ev >= EV_STRONG:
         label = "strong"
-    elif edge >= EDGE_VALUE:
+    elif ev >= EV_VALUE:
         label = "value"
-    elif edge >= -0.01:
+    elif ev >= -0.03:
         label = "pass"
     else:
         label = "avoid"
@@ -148,8 +145,6 @@ def verdict(edge: float, p_model: float | None = None, dec: float | None = None)
         not_pickable = p_model < MIN_VALUE_PROB or (dec is not None and dec > MAX_VALUE_DEC)
         if not_pickable and label in ("strong", "value"):
             label = "pass"
-        elif p_model < 0.20 and label == "strong":
-            label = "value"
     return label
 
 

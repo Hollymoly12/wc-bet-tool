@@ -14,9 +14,9 @@ import {
 const RISK_SCALER = { conservative: 0.7, balanced: 1.0, aggressive: 1.3 };
 
 /**
- * Build the value-play list using balanced-value filtering:
- *   - model >= 0.33 AND dec <= 4.0 AND edge > 0
- * Ranked by value_score = edge * model (not raw EV).
+ * Build the value-play list. A pick must be PROFITABLE at the offered odds:
+ *   - EV (model·dec − 1) >= 1%  AND  model >= 0.33  AND  dec <= 4.0
+ * Ranked by EV (expected return per unit staked).
  * Outright rows are filtered to those that pass (rare: champion prob rarely ≥ 33%).
  * Match rows come from the API's pre-computed best leg (which already passed the filter).
  */
@@ -25,7 +25,7 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
 
   // Outright plays: apply same balanced-value filter
   const out = outright
-    .filter((t) => isValuePick(t.model, t.dec, t.edge ?? (t.model - t.fair)))
+    .filter((t) => isValuePick(t.model, t.dec))
     .map((t) => {
       const edge = t.edge ?? (t.model - (t.fair ?? t.implied));
       return {
@@ -33,7 +33,7 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
         code: t.code, name: t.name, dec: t.dec, model: t.model, implied: t.implied,
         ev: t.ev, edge, fair: t.fair ?? t.implied, conf: t.conf, verdict: t.verdict,
         stage: 'group', // outright bets use conservative group params
-        valueScore: valueScore(t.model, t.fair ?? t.implied),
+        valueScore: valueScore(t.model, t.dec),
         stake: recommendedStakeStaged(t.model, t.dec, bankrollBalance, 'group', scaler),
       };
     });
@@ -41,7 +41,7 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
   // Match plays: API pre-selects the best value leg per match via value_score filter.
   // m.best is null when no leg passes the filter — we skip those.
   const mt = matches
-    .filter((m) => m.best && isValuePick(m.best.model, m.best.dec, m.best.edge ?? 0))
+    .filter((m) => m.best && isValuePick(m.best.model, m.best.dec))
     .map((m) => {
       const leg = m.best;
       const edge = leg.edge ?? (leg.model - (leg.fair ?? leg.implied));
@@ -54,12 +54,12 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
         dec: leg.dec, model: leg.model, implied: leg.implied,
         ev: leg.ev, edge, fair: leg.fair ?? leg.implied, conf: m.conf,
         stage, verdict: leg.verdict,
-        valueScore: valueScore(leg.model, leg.fair ?? leg.implied),
+        valueScore: valueScore(leg.model, leg.dec),
         stake: recommendedStakeStaged(leg.model, leg.dec, bankrollBalance, stage, scaler),
       };
     });
 
-  // Sort by value_score descending (edge × probability — penalises longshots)
+  // Sort by EV descending (expected return — most profitable pick first)
   return [...out, ...mt]
     .filter((p) => p.ev != null)
     .sort((a, b) => b.valueScore - a.valueScore);
@@ -162,7 +162,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
         {/* value leaderboard */}
         <div className="card value-board">
           <div className="card-head"><span>Value Leaderboard</span>
-            <span className="head-note">ranked by edge × probability</span></div>
+            <span className="head-note">ranked by expected value</span></div>
           <div className="vb-list">
             {rest.length === 0 && (
               <div className="empty-note">No further value picks pass the filter right now.</div>

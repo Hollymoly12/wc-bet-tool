@@ -296,16 +296,17 @@ export function stageLabel(stage = 'group') {
   return (STAGE_STAKING[stage] || STAGE_STAKING.group).label;
 }
 
-/** value_score = edge × probability (mirrors backend value_score). */
-export function valueScore(model, fair) {
-  return (model - fair) * model;
+/** Pick-ranking score = expected value at the offered odds (mirrors backend). */
+export function valueScore(model, dec) {
+  return model * dec - 1;
 }
 
-/** Returns true when a selection passes the balanced-value filter.
- *  Edge must be a real ≥1.5% (the 1X2 is market-anchored so edges are small). */
-export const EDGE_VALUE = 0.015;
-export function isValuePick(model, dec, edge) {
-  return model >= 0.33 && dec <= 4.0 && edge >= EDGE_VALUE;
+/** Returns true when a selection is a recommendable pick: PROFITABLE at the
+ *  offered odds (EV ≥ 1%), a likely-enough outcome (≥33%), not a longshot (≤4.0).
+ *  Mirrors the backend is_value_pick. */
+export const EV_VALUE = 0.01;
+export function isValuePick(model, dec) {
+  return model >= 0.33 && dec <= 4.0 && (model * dec - 1) >= EV_VALUE;
 }
 
 export function formatOdds(dec, fmt = 'decimal') {

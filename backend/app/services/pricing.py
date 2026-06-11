@@ -50,8 +50,7 @@ def price_match(
     for kind, fairp in zip(_kinds, fair):
         dec = market_odds[kind]
         model = p[kind]
-        vs = B.value_score(model, fairp)
-        iv = B.is_value_pick(model, dec, fairp)
+        ev = B.ev(model, dec)
         legs.append({
             "kind": kind,
             "dec": dec,
@@ -59,11 +58,11 @@ def price_match(
             "implied": B.implied_prob(dec),
             "fair": fairp,
             "edge": model - fairp,
-            "ev": B.ev(model, dec),
+            "ev": ev,
             "kelly": B.kelly_full(model, dec),
-            "verdict": B.verdict(model - fairp, model, dec),
-            "value_score": vs,
-            "is_value": iv,
+            "verdict": B.verdict(ev, model, dec),
+            "value_score": B.value_score(model, dec),
+            "is_value": B.is_value_pick(model, dec),
         })
     # Best = highest value_score among legs that pass the value-pick filter.
     # Falls back to None if no leg passes (no recommended pick for this match).
@@ -103,6 +102,7 @@ def price_outright(
     for c in codes:
         dec = dec_by_code[c]
         m = champion_probs.get(c, 0.0)
+        ev = B.ev(m, dec)
         rows.append({
             "code": c,
             "dec": dec,
@@ -110,9 +110,11 @@ def price_outright(
             "implied": B.implied_prob(dec),
             "fair": fair_by[c],
             "edge": m - fair_by[c],
-            "ev": B.ev(m, dec),
+            "ev": ev,
             "kelly": B.kelly_full(m, dec),
-            "verdict": B.verdict(m - fair_by[c]),
+            "verdict": B.verdict(ev, m, dec),
+            "value_score": B.value_score(m, dec),
+            "is_value": B.is_value_pick(m, dec),
             "str": str_by_code.get(c, 55.0),
         })
     return rows

@@ -29,8 +29,8 @@ def test_recommended_stake_caps_and_rounds():
     assert stake == int(stake)   # always a whole number (int)
 
 def test_verdict_thresholds():
-    # Standard thresholds (no p_model context): strong >= 0.05, value >= 0.015
-    assert B.verdict(0.06) == "strong"
+    # EV-based thresholds (no p_model context): strong >= 0.08, value >= 0.01
+    assert B.verdict(0.10) == "strong"
     assert B.verdict(0.03) == "value"
     assert B.verdict(0.0) == "pass"
     assert B.verdict(-0.05) == "avoid"
@@ -50,27 +50,26 @@ def test_verdict_strong_when_high_prob():
     assert B.verdict(0.15, p_model=0.55) == "strong"
 
 def test_value_score():
-    # value_score = (p_model - fair) * p_model
-    vs = B.value_score(0.50, 0.40)
-    assert abs(vs - 0.10 * 0.50) < 1e-9
-    # Negative edge → negative score
-    assert B.value_score(0.30, 0.35) < 0.0
+    # value_score = expected value at offered odds = p_model * dec - 1
+    assert abs(B.value_score(0.55, 2.0) - 0.10) < 1e-9
+    # Negative EV → negative score
+    assert B.value_score(0.40, 2.0) < 0.0
 
 def test_is_value_pick_passes():
-    # Strong favorite with positive edge: p=0.55, dec=1.8, fair=0.48 → passes all
-    assert B.is_value_pick(0.55, 1.8, 0.48) is True
+    # Favorite profitable at offered odds: p=0.55, dec=1.9 → EV=+0.045 → passes all
+    assert B.is_value_pick(0.55, 1.9) is True
 
 def test_is_value_pick_fails_low_prob():
     # p < 0.33 → rejected
-    assert B.is_value_pick(0.25, 2.0, 0.20) is False
+    assert B.is_value_pick(0.25, 2.0) is False
 
 def test_is_value_pick_fails_high_dec():
     # dec > 4.0 → longshot, rejected
-    assert B.is_value_pick(0.40, 4.5, 0.30) is False
+    assert B.is_value_pick(0.40, 4.5) is False
 
-def test_is_value_pick_fails_no_edge():
-    # p_model <= fair → no genuine edge
-    assert B.is_value_pick(0.45, 2.0, 0.46) is False
+def test_is_value_pick_fails_negative_ev():
+    # p=0.45, dec=2.0 → EV = -0.10 < 0 → not profitable, rejected even though prob ok
+    assert B.is_value_pick(0.45, 2.0) is False
 
 def test_recommended_stake_staged_group():
     # Group: ¼-Kelly, cap 3%
