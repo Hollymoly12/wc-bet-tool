@@ -18,6 +18,7 @@ def _hermetic_seed_mode(monkeypatch):
     monkeypatch.setenv("ODDS_API_KEY", "")
     monkeypatch.setenv("API_FOOTBALL_KEY", "")
     monkeypatch.setenv("WIKI_SQUADS_ENABLED", "0")
+    monkeypatch.setenv("WIKI_RESULTS_ENABLED", "0")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

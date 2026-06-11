@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     model_sims: int = 50000
     model_decay_halflife_days: int = 300
     wiki_squads_enabled: bool = True
+    wiki_results_enabled: bool = True
 
     @property
     def has_odds_key(self) -> bool:

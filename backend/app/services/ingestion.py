@@ -34,6 +34,7 @@ from app.db.models import (
 from app.models.ratings import RatingsModel, TeamRatings, fit_ratings
 from app.config import get_settings
 from app.providers.factory import get_football_provider, get_news_provider, get_odds_provider
+from app.providers.wiki_results import WikiResultsProvider
 from app.providers.wiki_squads import WikiSquadsProvider
 from app.seed import seed_data
 from app.services.market_anchor import blended_strength
@@ -267,8 +268,25 @@ def run_refresh(db: Session, sims: int = 50000) -> None:
     np_ = get_news_provider()
 
     fixtures = fp.fetch_fixtures()
-    results = fp.fetch_results()
+    results = list(fp.fetch_results())
     squads = _resolve_squads()
+
+    # Augment calibration results with recent WC2026 qualification matches
+    # (Wikipedia, free, no API key needed).  Gate on setting so hermetic tests
+    # never touch the network (WIKI_RESULTS_ENABLED=0 in conftest).
+    if get_settings().wiki_results_enabled:
+        try:
+            wiki_results = WikiResultsProvider().fetch_results()
+            results = results + wiki_results
+            logger.info(
+                "ingestion: merged %d wiki qualification results (%d total)",
+                len(wiki_results),
+                len(results),
+            )
+        except Exception as exc:
+            logger.warning(
+                "ingestion: WikiResultsProvider failed — continuing without: %s", exc
+            )
     odds_lines = op.fetch_odds()
     news_items = np_.fetch_news()
 
