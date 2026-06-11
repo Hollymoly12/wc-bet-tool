@@ -301,9 +301,11 @@ export function valueScore(model, fair) {
   return (model - fair) * model;
 }
 
-/** Returns true when a selection passes the balanced-value filter. */
+/** Returns true when a selection passes the balanced-value filter.
+ *  Edge must be a real ≥1.5% (the 1X2 is market-anchored so edges are small). */
+export const EDGE_VALUE = 0.015;
 export function isValuePick(model, dec, edge) {
-  return model >= 0.33 && dec <= 4.0 && edge > 0;
+  return model >= 0.33 && dec <= 4.0 && edge >= EDGE_VALUE;
 }
 
 export function formatOdds(dec, fmt = 'decimal') {

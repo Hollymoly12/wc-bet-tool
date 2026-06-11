@@ -122,9 +122,20 @@ export function EdgeBadge({ value, size = 'md' }) {
 }
 
 /* ---- verdict chip ------------------------------------------------------- */
-export function VerdictChip({ ev }) {
+const VERDICT_MAP = {
+  strong: ['STRONG BET', 'v-strong'],
+  value: ['VALUE', 'v-value'],
+  pass: ['LEAN PASS', 'v-pass'],
+  avoid: ['AVOID', 'v-avoid'],
+};
+// Prefer the backend `verdict` (gated on the value-pick filter) so a longshot /
+// draw with a large but artefactual EV doesn't read "STRONG BET". Falls back to
+// an EV-based label for markets that carry no backend verdict.
+export function VerdictChip({ verdict, ev }) {
   let label, cls;
-  if (ev >= 0.10) { label = 'STRONG BET'; cls = 'v-strong'; }
+  if (verdict && VERDICT_MAP[verdict]) {
+    [label, cls] = VERDICT_MAP[verdict];
+  } else if (ev >= 0.10) { label = 'STRONG BET'; cls = 'v-strong'; }
   else if (ev >= 0.03) { label = 'VALUE'; cls = 'v-value'; }
   else if (ev >= -0.03) { label = 'LEAN PASS'; cls = 'v-pass'; }
   else { label = 'AVOID'; cls = 'v-avoid'; }

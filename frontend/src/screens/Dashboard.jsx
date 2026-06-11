@@ -31,7 +31,7 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
       return {
         key: 'o:' + t.code, type: 'Outright', market: 'To win the World Cup',
         code: t.code, name: t.name, dec: t.dec, model: t.model, implied: t.implied,
-        ev: t.ev, edge, fair: t.fair ?? t.implied, conf: t.conf,
+        ev: t.ev, edge, fair: t.fair ?? t.implied, conf: t.conf, verdict: t.verdict,
         stage: 'group', // outright bets use conservative group params
         valueScore: valueScore(t.model, t.fair ?? t.implied),
         stake: recommendedStakeStaged(t.model, t.dec, bankrollBalance, 'group', scaler),
@@ -53,7 +53,7 @@ function buildValuePlays(outright, matches, bankrollBalance, riskKey) {
         name: leg.label || 'Match result',
         dec: leg.dec, model: leg.model, implied: leg.implied,
         ev: leg.ev, edge, fair: leg.fair ?? leg.implied, conf: m.conf,
-        stage,
+        stage, verdict: leg.verdict,
         valueScore: valueScore(leg.model, leg.fair ?? leg.implied),
         stake: recommendedStakeStaged(leg.model, leg.dec, bankrollBalance, stage, scaler),
       };
@@ -178,7 +178,7 @@ export default function Dashboard({ outright, matches, bankroll, riskKey, oddsFm
                 </div>
                 <div className="vb-odds mono">{formatOdds(p.dec, oddsFmt)}</div>
                 <EdgeBadge value={p.ev} />
-                <VerdictChip ev={p.ev} />
+                <VerdictChip verdict={p.verdict} ev={p.ev} />
                 <div className="vb-stake-wrap">
                   <span className="vb-stake-amt mono">{fmtMoney(p.stake, currency)}</span>
                   <span className="vb-stake-pct">({balance > 0 ? Math.round(p.stake / balance * 100) : 0}%)</span>

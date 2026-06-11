@@ -29,16 +29,21 @@ def test_recommended_stake_caps_and_rounds():
     assert stake == int(stake)   # always a whole number (int)
 
 def test_verdict_thresholds():
-    # Standard thresholds (no p_model context)
-    assert B.verdict(0.12) == "strong"
-    assert B.verdict(0.05) == "value"
+    # Standard thresholds (no p_model context): strong >= 0.05, value >= 0.015
+    assert B.verdict(0.06) == "strong"
+    assert B.verdict(0.03) == "value"
     assert B.verdict(0.0) == "pass"
     assert B.verdict(-0.05) == "avoid"
 
-def test_verdict_caps_longshot_to_value():
-    # A longshot (p < 0.20) with edge ≥ 0.10 should be capped at 'value', not 'strong'
-    assert B.verdict(0.15, p_model=0.12) == "value"
-    assert B.verdict(0.10, p_model=0.19) == "value"
+def test_verdict_gated_by_value_filter():
+    # A low-probability leg (< MIN_VALUE_PROB) never reads value/strong → 'pass',
+    # even with a large (artefactual) edge.
+    assert B.verdict(0.15, p_model=0.12) == "pass"
+    assert B.verdict(0.10, p_model=0.19) == "pass"
+    # High odds (dec > MAX_VALUE_DEC) also caps to 'pass' even with high prob.
+    assert B.verdict(0.10, p_model=0.50, dec=5.0) == "pass"
+    # A genuine pick (prob ok, odds ok, real edge) keeps its value verdict.
+    assert B.verdict(0.03, p_model=0.50, dec=2.0) == "value"
 
 def test_verdict_strong_when_high_prob():
     # A high-probability outcome with large edge should still be 'strong'

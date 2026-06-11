@@ -186,7 +186,7 @@ export default function MatchAnalysis({ matches, teamForms, bankroll, riskKey, o
                       {isBest && <div className="best-flag"><Icon name="bolt" size={11} /> MODEL PICK</div>}
                       <div className="oc-head">
                         <span className="oc-label">{leg.label}</span>
-                        <VerdictChip ev={leg.ev} />
+                        <VerdictChip verdict={leg.verdict} ev={leg.ev} />
                       </div>
                       <div className="oc-odds mono">{formatOdds(leg.dec, oddsFmt)}</div>
                       <ProbCompare implied={leg.implied} model={leg.model} />

@@ -7,6 +7,11 @@ from app.services.market_anchor import lambdas_from_strength
 # scipy-free market_util module so the read API can import them standalone.
 from app.services.market_util import _shash, market_from_prob  # noqa: F401
 
+# Weight of the independent strength→Poisson model in the match 1X2 (the rest is
+# the de-vigged market). Keeps the model honest without letting its blowout
+# miscalibration produce artefactual value on draws/underdogs.
+MATCH_MODEL_WEIGHT = 0.50
+
 
 def price_match(
     match_id: str,
@@ -31,10 +36,18 @@ def price_match(
     rho_value = ratings.rho if ratings is not None else -0.05
     lh, la = lambdas_from_strength(sH, sA)
     mk = match_markets(lh, la, rho=rho_value)
-    p = mk["1x2"]
     fair = B.fair_probs([market_odds["home"], market_odds["draw"], market_odds["away"]])
+    # Market-anchor the 1X2. The pure strength→Poisson model is miscalibrated for
+    # big mismatches (it overrates draws/underdogs → artefactual +EV). Blend it
+    # toward the de-vigged market so probabilities and EVs are realistic; genuine
+    # divergences survive (smaller, honest edges).
+    _kinds = ("home", "draw", "away")
+    _fairmap = dict(zip(_kinds, fair))
+    p = {k: MATCH_MODEL_WEIGHT * mk["1x2"][k] + (1 - MATCH_MODEL_WEIGHT) * _fairmap[k]
+         for k in _kinds}
+    mk["1x2"] = p  # keep displayed market consistent with the anchored legs
     legs = []
-    for kind, fairp in zip(("home", "draw", "away"), fair):
+    for kind, fairp in zip(_kinds, fair):
         dec = market_odds[kind]
         model = p[kind]
         vs = B.value_score(model, fairp)
@@ -48,7 +61,7 @@ def price_match(
             "edge": model - fairp,
             "ev": B.ev(model, dec),
             "kelly": B.kelly_full(model, dec),
-            "verdict": B.verdict(model - fairp, model),
+            "verdict": B.verdict(model - fairp, model, dec),
             "value_score": vs,
             "is_value": iv,
         })
